@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  fastapi-pdf-parser:
+    build:
+      context: .
+    container_name: fastapi-pdf-parser
+    volumes:
+      - .:/app
+      - ${APPDATA}/gcloud/application_default_credentials.json:/google_credentials/application_default_credentials.json:ro
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/google_credentials/application_default_credentials.json
+      - GCP_PROJECT_ID=lacriee
+    command: uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+    restart: unless-stopped

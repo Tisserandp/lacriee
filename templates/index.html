@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Laurent Daniel - Cours</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      color: #333;
+      margin: 1rem;
+      background: #f5f7fa;
+    }
+    #datesContainer {
+  font-weight: 600;
+  font-size: 1.4rem;
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+  #dateLabel {
+    font-weight: 400;
+    font-size: 1.4rem;
+  }
+    
+    .selection-blocks {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .block {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #f9f9f9;
+      min-height: 160px;
+    }
+    .block h3 {
+      margin-top: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 0.3rem;
+      margin-bottom: 0.7rem;
+    }
+    .line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .qty-controls button {
+      padding: 0.2rem 0.5rem;
+      border: 1px solid #aaa;
+      background: white;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    .wa-button {
+      background-color: #25d366;
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .copy-button {
+      background-color: #eee;
+      border: 1px solid #ccc;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      position: relative;
+    }
+    .copy-button::after {
+      content: "Copié !";
+      position: absolute;
+      right: -80px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #25d366;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .copy-button.copied::after {
+      opacity: 1;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
+    }
+    th, td {
+      padding: 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid #ccc;
+      font-size: 0.95rem;
+    }
+    th {
+      background-color: #eee;
+    }
+    tr.selected {
+      background-color: #b3e5fc !important;
+    }
+    .highlight-row {
+      background-color: #e6f8e6 !important;
+    }
+    .orange-cell {
+      background-color: #ffe5b4;
+    }
+    .blue-cell {
+      background-color: #cce5ff;
+    }
+
+    .unit-toggle {
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 2px 6px;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .unit-toggle:hover {
+      background: #e0e0e0;
+    }
+
+    .warning-line {
+  background-color: #ffe6e6;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+  </style>
+</head>
+<body>
+
+  <div id="datesContainer">
+    🐟 Cours Laurent Daniel &nbsp;&nbsp; <span id="dateLabel">🗓️ Date</span>
+  </div>
+  
+
+  <div class="selection-blocks" id="summaryBlocks">
+    <div class="block" id="achatBlock">
+      <h3>🏦 Achats</h3>
+      <div id="achatLines">Aucune sélection</div>
+      <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+        <button class="copy-button" onclick="copyBlock('achat', this)">📋 Copier</button>
+        <a class="wa-button" id="waAchat" href="#" target="_blank">Envoyer</a>
+      </div>
+    </div>
+    <div class="block" id="flashBlock">
+      <h3>⚡ Flash Sales</h3>
+      <div id="flashLines">Aucune sélection</div>
+      <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+        <button class="copy-button" onclick="copyBlock('flash', this)">📋 Copier</button>
+        <a class="wa-button" id="waFlash" href="#" target="_blank">Envoyer</a>
+      </div>
+    </div>
+  </div>
+
+  <table id="productTable">
+    <thead>
+      <tr>
+        <th>Catégorie</th>
+        <th>Produit</th>
+        <th>Nom BEO</th>
+        <th>Prix LD</th>
+        <th>Prix HK$</th>
+        <th>% vs AVG</th>
+        <th>★</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+function parseNumber(value) {
+  if (value === null || value === undefined) return NaN;
+  const str = String(value).replace(/[\u202f\u00a0]/g, "").replace(/[^\d,.-]/g, "").replace(",", ".");
+  return parseFloat(str);
+}
+
+let allDates = [];
+let selectedData = new Map();
+
+async function fetchProduits() {
+  const response = await fetch("/produits");
+  const produits = await response.json();
+
+  const dates = [...new Set(produits.map(p => p.date))].sort();
+  allDates = dates;
+
+  const dateStr = new Date(dates[0]).toLocaleDateString('fr-FR', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+  document.getElementById("dateLabel").innerText = `🗓️ ${dateStr}`;
+
+  produits.sort((a, b) => {
+    if (b.watchlist === "TRUE" && a.watchlist !== "TRUE") return 1;
+    if (a.watchlist === "TRUE" && b.watchlist !== "TRUE") return -1;
+    return (a.Categorie || "").localeCompare(b.Categorie || "");
+  });
+
+  const tbody = document.querySelector("#productTable tbody");
+  tbody.innerHTML = "";
+
+  produits.forEach(prod => {
+    const row = document.createElement("tr");
+
+    const ldPriceNum = parseNumber(prod["LDPrice(EUR/kg)"]);
+    const hkPriceNum = parseNumber(prod["CostPrice (HK$/pack)"]);
+    const vsAvgNum = parseNumber(prod["vsAVG"]);
+
+    const ldPrice = isNaN(ldPriceNum) ? "na" : ldPriceNum.toLocaleString("en-US", { minimumFractionDigits: 1 });
+    const hkPrice = isNaN(hkPriceNum) ? "na" : `$${hkPriceNum.toLocaleString("en-US", { minimumFractionDigits: 1 })}`;
+    const vsClass = vsAvgNum < 0 ? "blue-cell" : vsAvgNum > 0 ? "orange-cell" : "";
+
+    if (!isNaN(ldPriceNum) && ldPriceNum < 30) {
+      row.classList.add("highlight-row");
+    }
+
+    row.innerHTML = `
+      <td>${prod.Categorie || ""}</td>
+      <td>${prod.key_product || ""}</td>
+      <td>${prod.BEO_name || ""}</td>
+      <td>${ldPrice}</td>
+      <td>${hkPrice}</td>
+      <td class="${vsClass}">${isNaN(vsAvgNum) ? "na" : vsAvgNum.toFixed(0) + "%"}</td>
+      <td>${prod.watchlist === "TRUE" ? "★" : ""}</td>
+    `;
+
+    row.addEventListener("click", () => {
+      row.classList.toggle("selected");
+      const id = prod.key_product;
+      if (row.classList.contains("selected")) {
+        selectedData.set(id, { ...prod, qty: 1 });
+      } else {
+        selectedData.delete(id);
+      }
+      renderSummary();
+    });
+
+    tbody.appendChild(row);
+  });
+}
+
+function toggleUnit(id) {
+  const prod = selectedData.get(id);
+  if (!prod) return;
+  prod.unit = prod.unit === "kg" ? "piece" : "kg";
+  updateUnitDisplay(id);
+}
+
+function updateUnitDisplay(id) {
+  const prod = selectedData.get(id);
+  const label = getUnitLabel(prod);
+  document.getElementById("unit-" + id).textContent = label;
+}
+
+function getUnitLabel(prod) {
+  if (!prod.unit) prod.unit = "kg";
+  const qty = prod.qty || 1;
+  if (prod.unit === "kg") return "kg";
+  return qty >= 2 ? "pièces" : "pièce";
+}
+
+function renderSummary() {
+  const achatLines = document.getElementById("achatLines");
+  const flashLines = document.getElementById("flashLines");
+
+  achatLines.innerHTML = "";
+  flashLines.innerHTML = "";
+
+  if (selectedData.size === 0) {
+    achatLines.textContent = "Aucune sélection";
+    flashLines.textContent = "Aucune sélection";
+    return;
+  }
+
+  selectedData.forEach((prod, key) => {
+    const achatDiv = document.createElement("div");
+  
+    achatDiv.className = "line" + (isNaN(parseFloat(prod["LDPrice(EUR/kg)"])) ? " warning-line" : "");
+    const prix = parseFloat(prod["LDPrice(EUR/kg)"]);
+    achatDiv.innerHTML = `
+  <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <span class="qty-controls">
+      <button onclick="changeQty('${key}', -1)">-</button>
+      <span id="qty-${key}" style="margin: 0 0.4rem; font-weight: 600;">${prod.qty}</span>
+      <button onclick="changeQty('${key}', 1)">+</button>
+    </span>
+    <span id="unit-${key}" class="unit-toggle" onclick="toggleUnit('${key}')">${getUnitLabel(prod)}</span>
+    <span>${prod.key_product} - ${isNaN(prix) ? "na" : prix.toFixed(1)} €/kg</span>
+  </div>
+`;
+
+    achatLines.appendChild(achatDiv);
+
+    const flashDiv = document.createElement("div");
+
+flashDiv.className = "line" + (isNaN(parseFloat(prod["LDPrice(EUR/kg)"])) ? " warning-line" : "");
+flashDiv.style.whiteSpace = "pre"; // 🧠 pour garder les tabulations sans sauter de lignes
+const unit = getUnitLabel(prod);
+flashDiv.textContent = `${prod.BEO_name}\t${prod.qty} ${unit}`;
+
+flashLines.appendChild(flashDiv);
+  });
+
+  const dateFormatted = allDates.map(d => new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })).join(" / ");
+
+  const achatText = [`Date : ${dateFormatted}`,
+    ...Array.from(selectedData.values()).map(p => `${p.key_product} - ${isNaN(p["LDPrice(EUR/kg)"]) ? "na" : parseFloat(p["LDPrice(EUR/kg)"]).toFixed(1)} €/kg - Qty:${p.qty}`)
+  ].join("\n");
+
+  const flashText = [`Date : ${dateFormatted}`,
+    ...Array.from(selectedData.values()).map(p => `${p.BEO_name} - ${p["CostPrice (HK$/pack)"]}`)
+  ].join("\n");
+
+  document.getElementById("waAchat").href = `https://wa.me/?text=${encodeURIComponent(achatText)}`;
+  document.getElementById("waFlash").href = `https://wa.me/?text=${encodeURIComponent(flashText)}`;
+}
+
+function changeQty(id, delta) {
+  const prod = selectedData.get(id);
+  if (!prod) return;
+
+  const newQty = (prod.qty || 1) + delta;
+
+  if (newQty < 1) {
+    selectedData.delete(id); // supprime du Map
+    // supprime la classe .selected du tableau
+    const rows = document.querySelectorAll("#productTable tbody tr");
+    rows.forEach(row => {
+      if (row.innerText.includes(prod.key_product)) {
+        row.classList.remove("selected");
+      }
+    });
+  } else {
+    prod.qty = newQty;
+  }
+
+  renderSummary(); // met à jour achat + flash + liens whatsapp
+}
+
+
+
+function copyBlock(type, btn) {
+  let lines = [];
+
+  // Affichage de la date en haut
+ // const dateFormatted = allDates.map(d => new Date(d).toLocaleDateString('fr-FR', {
+ //   weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+ // })).join(" / ");
+  //lines.push("Date : " + dateFormatted);
+
+  if (type === "achat") {
+    selectedData.forEach(p => {
+      const unitLabel = p.unit === "kg" ? "kg" : (p.qty >= 2 ? "pcs" : "pc");
+      const prix = isNaN(p["LDPrice(EUR/kg)"]) ? "na" : parseFloat(p["LDPrice(EUR/kg)"]).toFixed(1);
+      lines.push(`${p.qty}${unitLabel} ${p.key_product} - ${prix} €`);
+    });
+  } else {
+    selectedData.forEach(p => {
+      const unit = p.unit === "kg" ? "kg" : (p.qty >= 2 ? "pièces" : "pièce");
+      lines.push(`${p.BEO_name}\t${p.qty} ${unit}`);
+    });
+  }
+
+  const text = lines.join("\n");
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showCopied(btn);
+    }).catch(err => {
+      console.error("Clipboard copy failed:", err);
+    });
+  } else {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      showCopied(btn);
+    } catch (err) {
+      console.error("Fallback copy failed:", err);
+    }
+    document.body.removeChild(textarea);
+  }
+}
+
+function showCopied(btn) {
+  btn.innerHTML = "✅ Copié !";
+  btn.style.backgroundColor = "#ffa726";
+  btn.style.color = "#fff";
+  setTimeout(() => {
+    btn.innerHTML = "📋 Copier";
+    btn.style.backgroundColor = "#eee";
+    btn.style.color = "#000";
+  }, 1500);
+}
+
+
+fetchProduits();
+</script>
+</body>
+</html>
