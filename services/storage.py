@@ -13,30 +13,18 @@ logger = logging.getLogger(__name__)
 
 def get_gcs_client():
     """
-    Retourne un client GCS basé sur les credentials depuis GOOGLE_APPLICATION_CREDENTIALS ou Secret Manager.
+    Retourne un client GCS basé sur les credentials par défaut (Cloud Run, local, etc).
     """
-    import os
     from google.auth import default
-    
+
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
     project_id = os.environ.get("GCP_PROJECT_ID", "lacriee")
-    
+
     try:
-        # Essayer d'abord avec GOOGLE_APPLICATION_CREDENTIALS (pour Docker/local)
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-            credentials, project = default(scopes=scopes)
-            project_id = project or project_id
-            return storage.Client(credentials=credentials, project=project_id)
-        
-        # Fallback: utiliser Secret Manager si GOOGLE_APPLICATION_CREDENTIALS n'est pas défini
-        import config
-        secret_name = "providersparser"
-        credentials_json = config.get_secret(secret_name)
-        info = json.loads(credentials_json)
-        credentials = service_account.Credentials.from_service_account_info(
-            info, scopes=scopes
-        )
-        return storage.Client(credentials=credentials, project=info.get("project_id", project_id))
+        # Utiliser les credentials par défaut (fonctionne sur Cloud Run, local avec gcloud auth, Docker avec GOOGLE_APPLICATION_CREDENTIALS)
+        credentials, project = default(scopes=scopes)
+        project_id = project or project_id
+        return storage.Client(credentials=credentials, project=project_id)
     except Exception as e:
         logger.error(f"Erreur création client GCS: {e}")
         raise

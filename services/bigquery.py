@@ -18,32 +18,19 @@ PROJECT_ID = "lacriee"  # Sera remplacé par le projet actif
 
 def get_bigquery_client():
     """
-    Retourne un client BigQuery basé sur les credentials depuis GOOGLE_APPLICATION_CREDENTIALS ou Secret Manager.
+    Retourne un client BigQuery basé sur les credentials par défaut (Cloud Run, local, etc).
     """
-    import os
     from google.auth import default
-    
+
     scopes = [
         "https://www.googleapis.com/auth/cloud-platform",
         "https://www.googleapis.com/auth/drive.readonly"
     ]
-    
+
     try:
-        # Essayer d'abord avec GOOGLE_APPLICATION_CREDENTIALS (pour Docker/local)
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-            credentials, project = default(scopes=scopes)
-            project_id = project or PROJECT_ID
-            return bigquery.Client(credentials=credentials, project=project_id)
-        
-        # Fallback: utiliser Secret Manager si GOOGLE_APPLICATION_CREDENTIALS n'est pas défini
-        import config
-        secret_name = "providersparser"
-        credentials_json = config.get_secret(secret_name)
-        info = json.loads(credentials_json)
-        credentials = service_account.Credentials.from_service_account_info(
-            info, scopes=scopes
-        )
-        project_id = info.get("project_id", PROJECT_ID)
+        # Utiliser les credentials par défaut (fonctionne sur Cloud Run, local avec gcloud auth, Docker avec GOOGLE_APPLICATION_CREDENTIALS)
+        credentials, project = default(scopes=scopes)
+        project_id = project or PROJECT_ID
         return bigquery.Client(credentials=credentials, project=project_id)
     except Exception as e:
         logger.error(f"Erreur création client BigQuery: {e}")
