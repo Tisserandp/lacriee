@@ -1,0 +1,931 @@
+"""
+Module d'harmonisation des attributs pour les 5 parseurs LaCriee.
+
+Ce module centralise toutes les règles de normalisation définies dans
+docs/harmonisation_attributs.md
+
+Usage:
+    from services.harmonize import harmonize_product
+
+    product = {...}  # Sortie brute d'un parseur
+    harmonized = harmonize_product(product, vendor="Audierne")
+"""
+import re
+import unicodedata
+from typing import Optional
+
+
+# =============================================================================
+# MAPPINGS DE NORMALISATION
+# =============================================================================
+
+# --- Categorie ---
+CATEGORIE_MAPPING = {
+    # Variations vers valeur harmonisée
+    "PLIE/ CARRELET": "CARRELET",
+    "PLIE/CARRELET": "CARRELET",
+    "CRUSTACES BRETONS": "CRUSTACES",
+    "CRUSTACES CUITS PAST": "CRUSTACES",
+    "TOURTEAUX - ARAIGNEES": "CRUSTACES",
+    "TOURTEAUX": "CRUSTACES",
+    "ARAIGNEES": "CRUSTACES",
+    "ST PIERRE": "SAINT PIERRE",
+    "SAUMONS": "SAUMON",
+    "LIEU": "LIEU JAUNE",
+    "LIMANDE SOLE": "LIMANDE",
+    "DIVERS POISSONS": "DIVERS",
+    # Catégories FILET → à traiter spécialement (extraire espèce)
+    "FILET DE POISSONS": None,  # Sera traité par extract_species_from_filet
+    "FILETS": None,
+    "BAR FILET": None,
+}
+
+# --- Methode_Peche ---
+METHODE_PECHE_MAPPING = {
+    "PT BATEAU": "PB",
+    "PETIT BATEAU": "PB",
+    # "LIGNE IKEJIME" → traité spécialement (séparer en LIGNE + technique_abattage)
+    # "SAUVAGE" → traité spécialement (déplacer vers type_production)
+}
+
+# Valeurs à extraire de methode_peche vers d'autres champs
+METHODE_PECHE_EXTRACT = {
+    "SAUVAGE": {"field": "type_production", "value": "SAUVAGE"},
+    "LIGNE IKEJIME": {"field": "technique_abattage", "value": "IKEJIME", "replace_with": "LIGNE"},
+}
+
+# --- Qualite ---
+QUALITE_MAPPING = {
+    "QUALITE PREMIUM": "PREMIUM",
+}
+
+# --- Etat ---
+ETAT_MAPPING = {
+    "VIDEE": "VIDE",
+    "VIDÉ": "VIDE",
+    "PELEE": "PELE",
+    "PELÉE": "PELE",
+    "CORAILLEES": "CORAILLE",
+    "CORAIL": "CORAILLE",
+    "DESARETEE": "DESARETE",
+    "ENTIÈRE": "ENTIER",
+    "ENTIERE": "ENTIER",
+}
+
+# Couleurs à extraire vers le champ 'couleur'
+ETAT_COULEURS = {"ROUGE", "BLANCHE", "NOIRE"}
+
+# --- Origine ---
+ORIGINE_MAPPING = {
+    "BRETON": "BRETAGNE",
+    "VAT": "ATLANTIQUE",
+    "VDK": "DANEMARK",
+    "AQ": "AQUACULTURE",
+    "ECOS": "ECOSSE",
+    "IRL": "IRLANDE",
+    "VDA": "AUDIERNE",
+}
+
+# Origines à extraire vers type_production
+ORIGINE_EXTRACT = {
+    "AQUACULTURE": {"field": "type_production", "value": "ELEVAGE"},
+    "AQ": {"field": "type_production", "value": "ELEVAGE"},
+}
+
+# --- Conservation ---
+CONSERVATION_MAPPING = {
+    "CONGELEE": "CONGELE",
+    "SURGELEE": "SURGELE",
+}
+
+# --- Trim ---
+TRIM_MAPPING = {
+    "TRIM C": "TRIM_C",
+    "TRIM D": "TRIM_D",
+    "TRIM E": "TRIM_E",
+    "TRIM B": "TRIM_B",
+}
+
+# =============================================================================
+# MAPPINGS SPÉCIFIQUES DEMARNE
+# =============================================================================
+
+# Labels officiels reconnus
+DEMARNE_LABELS = {"MSC", "BIO", "ASC", "LABEL ROUGE", "IGP", "AOP"}
+
+# Espèces à extraire depuis les catégories Demarne
+DEMARNE_SPECIES_PATTERNS = [
+    # Catégories composites → espèce
+    (r'^SAUMON\b', 'SAUMON'),
+    (r'^BAR\b', 'BAR'),
+    (r'^DORADE\b', 'DORADE'),
+    (r'^CREVETTE\b', 'CREVETTES'),
+    (r'^HOMARD\b', 'HOMARD'),
+    (r'^LANGOUSTE\b', 'LANGOUSTE'),
+    (r'^LANGOUSTINE\b', 'LANGOUSTINE'),
+    (r'^LOTTE\b', 'LOTTE'),
+    (r'^TURBOT\b', 'TURBOT'),
+    (r'^SAINT\s*PIERRE\b', 'SAINT PIERRE'),
+    (r'^CONGRE\b', 'CONGRE'),
+    (r'^MAIGRE\b', 'MAIGRE'),
+    (r'^ENCORNET\b', 'ENCORNET'),
+    (r'^POULPE\b', 'POULPE'),
+    (r'^SEICHE\b', 'SEICHE'),
+    (r'^MOULE', 'MOULES'),
+    (r'^TOURTEAU\b', 'TOURTEAU'),
+    (r'^THON\b', 'THON'),
+    (r'^SANDRE\b', 'SANDRE'),
+    (r'^TRUITE\b', 'TRUITE'),
+    (r'^SOLE\b', 'SOLE'),
+    (r'^AILE DE RAIE\b', 'RAIE'),
+    (r'^COQUILLE\s*SAINT\s*JACQUES\b', 'COQUILLE ST JACQUES'),
+    (r'^NOIX DE ST JACQUES\b', 'NOIX ST JACQUES'),
+    # Catégories huîtres (marques)
+    (r'^HUITRE', 'HUITRES'),
+    (r'^LA BELON\b', 'HUITRES'),
+    (r'^LA CELTIQUE\b', 'HUITRES'),
+    (r'^LA FINE\b', 'HUITRES'),
+    (r'^LA PERLE NOIRE\b', 'HUITRES'),
+    (r'^LA SPECIALE\b', 'HUITRES'),
+    (r'^PLATE DE BRETAGNE\b', 'HUITRES'),
+    (r'^SPECIALE', 'HUITRES'),
+    (r'^KYS\b', 'HUITRES'),
+    (r'^ETOILE\b', 'HUITRES'),
+    # Catégories génériques
+    (r'^COQUILLAGES', 'COQUILLAGES'),
+    (r'^CRUSTACES', 'CRUSTACES'),
+    # Catégories FILET → categorie=FILET (décision utilisateur)
+    (r'^FILET', 'FILET'),
+]
+
+# Origines à extraire depuis les catégories Demarne
+DEMARNE_ORIGINE_PATTERNS = [
+    (r'\bNORVEGE\b', 'NORVEGE'),
+    (r'\bNORV[EÈ]GE\b', 'NORVEGE'),
+    (r'\bECOSSE\b', 'ECOSSE'),
+    (r'\b[EÉ]COSSE\b', 'ECOSSE'),
+    (r'\bBRETAGNE\b', 'BRETAGNE'),
+    (r'\bMADAGASCAR\b', 'MADAGASCAR'),
+    (r'\bCANADIEN\b', 'CANADA'),
+    (r'\bEUROPEEN\b', 'EUROPE'),
+]
+
+# Type production à extraire depuis les catégories Demarne
+DEMARNE_TYPE_PRODUCTION_PATTERNS = [
+    (r'\bSAUVAGE\b', 'SAUVAGE'),
+    (r'\bELEVAGE\b', 'ELEVAGE'),
+    (r'\b[EÉ]LEVAGE\b', 'ELEVAGE'),
+]
+
+# Qualités à extraire depuis les catégories Demarne
+DEMARNE_QUALITE_PATTERNS = [
+    (r'\bSUPERIEUR\b', 'SUP'),
+    (r'\bSUP[EÉ]RIEUR\b', 'SUP'),
+    (r'\bPREMIUM\b', 'PREMIUM'),
+    (r'\bLABEL ROUGE\b', 'LABEL ROUGE'),
+]
+
+# États à extraire depuis les catégories/variantes Demarne
+DEMARNE_ETAT_PATTERNS = [
+    (r'\bENTIER\b', 'ENTIER'),
+    (r'\bENTI[EÈ]RE?\b', 'ENTIER'),
+    (r'\bVIDE\b', 'VIDE'),
+    (r'\bVID[EÉ]\b', 'VIDE'),
+    (r'\bGRATTE\b', 'GRATTE'),
+    (r'\bCUIT\b', 'CUIT'),
+    (r'\bCUITE\b', 'CUIT'),
+    (r'\bVIVANT\b', 'VIVANT'),
+    (r'\bFUME\b', 'FUME'),
+    (r'\bFUM[EÉ]\b', 'FUME'),
+    (r'\bDECORTIQUE', 'DECORTIQUE'),
+]
+
+# Découpes à extraire depuis les variantes Demarne
+DEMARNE_DECOUPE_PATTERNS = [
+    (r'\bFILET\b', 'FILET'),
+    (r'\bDOS\b', 'DOS'),
+    (r'\bQUEUE\b', 'QUEUE'),
+    (r'\bPAVE\b', 'PAVE'),
+    (r'\bPAV[EÉ]\b', 'PAVE'),
+    (r'\bLONGE\b', 'LONGE'),
+    (r'\bAILE\b', 'AILE'),
+    (r'\bNOIX\b', 'NOIX'),
+    (r'\bPINCE\b', 'PINCE'),
+    (r'\bDARNE\b', 'DARNE'),
+    (r'\bSTEAK\b', 'STEAK'),
+]
+
+# Origines Demarne à normaliser (corrections orthographiques et variations)
+DEMARNE_ORIGINE_MAPPING = {
+    "ECOSSE": "ECOSSE",
+    "ÉCOSSE": "ECOSSE",
+    "DANNEMARK": "DANEMARK",
+    "NORVEGE": "NORVEGE",
+    "NORVÈGE": "NORVEGE",
+    "ANE": "ATLANTIQUE N-EST",
+    "AML": "MADAGASCAR",
+    "UK": "ROYAUME-UNI",
+    "UK - DK": "ROYAUME-UNI, DANEMARK",
+    "USA": "USA",
+    "U.S.A": "USA",
+    "MED": "MEDITERRANEE",
+}
+
+
+# =============================================================================
+# FONCTIONS DE NORMALISATION
+# =============================================================================
+
+def remove_accents(text: str) -> str:
+    """Supprime les accents d'une chaîne."""
+    if not text:
+        return text
+    nfkd = unicodedata.normalize('NFD', text)
+    return ''.join(c for c in nfkd if unicodedata.category(c) != 'Mn')
+
+
+def normalize_value(value: Optional[str]) -> Optional[str]:
+    """
+    Normalisation de base d'une valeur:
+    - Majuscules
+    - Suppression des accents
+    - Strip des espaces
+    """
+    if value is None or value == "":
+        return None
+    value = str(value).strip().upper()
+    value = remove_accents(value)
+    return value if value else None
+
+
+def normalize_calibre(calibre: Optional[str]) -> Optional[str]:
+    """
+    Normalise un calibre selon les règles définies:
+    - Virgule → point (séparateur décimal)
+    - Format "plus" unifié (500/+ → 500+, +2 → 2+)
+    """
+    if not calibre:
+        return None
+
+    calibre = str(calibre).strip()
+
+    # Normaliser séparateur décimal (virgule → point)
+    # Attention: ne pas toucher aux virgules dans les plages comme "1,5/2"
+    # On remplace seulement quand c'est clairement un décimal
+    calibre = re.sub(r'(\d),(\d)', r'\1.\2', calibre)
+
+    # Normaliser format "plus"
+    # 500/+ → 500+
+    calibre = re.sub(r'(\d+)/\+', r'\1+', calibre)
+    # +2 → 2+ (moins fréquent)
+    calibre = re.sub(r'^\+(\d+)$', r'\1+', calibre)
+
+    return calibre
+
+
+def normalize_categorie(categorie: Optional[str], product_name: Optional[str] = None) -> dict:
+    """
+    Normalise une catégorie et gère les cas spéciaux (FILET).
+
+    Returns:
+        dict avec 'categorie' et optionnellement 'decoupe' si extrait
+    """
+    result = {"categorie": None, "decoupe_from_categorie": None}
+
+    if not categorie:
+        return result
+
+    categorie = normalize_value(categorie)
+
+    # Cas spécial: catégories FILET
+    if categorie in ("FILET", "FILETS", "FILET DE POISSONS", "BAR FILET"):
+        result["decoupe_from_categorie"] = "FILET"
+        # Essayer d'extraire l'espèce depuis le nom du produit
+        if product_name:
+            species = extract_species_from_name(product_name)
+            if species:
+                result["categorie"] = species
+        return result
+
+    # Mapping standard
+    if categorie in CATEGORIE_MAPPING:
+        mapped = CATEGORIE_MAPPING[categorie]
+        if mapped is not None:
+            result["categorie"] = mapped
+        return result
+
+    result["categorie"] = categorie
+    return result
+
+
+def normalize_methode_peche(methode: Optional[str]) -> dict:
+    """
+    Normalise une méthode de pêche et extrait les champs additionnels.
+
+    Returns:
+        dict avec 'methode_peche', 'type_production', 'technique_abattage'
+    """
+    result = {
+        "methode_peche": None,
+        "type_production": None,
+        "technique_abattage": None,
+    }
+
+    if not methode:
+        return result
+
+    methode = normalize_value(methode)
+
+    # Cas spéciaux avec extraction
+    if methode in METHODE_PECHE_EXTRACT:
+        extract = METHODE_PECHE_EXTRACT[methode]
+        result[extract["field"]] = extract["value"]
+        if "replace_with" in extract:
+            result["methode_peche"] = extract["replace_with"]
+        return result
+
+    # Mapping standard
+    if methode in METHODE_PECHE_MAPPING:
+        result["methode_peche"] = METHODE_PECHE_MAPPING[methode]
+    else:
+        result["methode_peche"] = methode
+
+    return result
+
+
+def normalize_etat(etat: Optional[str]) -> dict:
+    """
+    Normalise un état et extrait la couleur si applicable.
+
+    Returns:
+        dict avec 'etat' et 'couleur'
+    """
+    result = {"etat": None, "couleur": None}
+
+    if not etat:
+        return result
+
+    etat = normalize_value(etat)
+
+    # Cas spécial: couleurs → champ dédié
+    if etat in ETAT_COULEURS:
+        result["couleur"] = etat
+        return result
+
+    # Mapping standard
+    if etat in ETAT_MAPPING:
+        result["etat"] = ETAT_MAPPING[etat]
+    else:
+        result["etat"] = etat
+
+    return result
+
+
+def normalize_origine(origine: Optional[str]) -> dict:
+    """
+    Normalise une origine et extrait type_production si applicable.
+
+    Returns:
+        dict avec 'origine' et 'type_production'
+    """
+    result = {"origine": None, "type_production": None}
+
+    if not origine:
+        return result
+
+    # Gérer les origines multiples (séparées par virgule)
+    origines = [o.strip() for o in str(origine).split(",")]
+    normalized_origines = []
+
+    for orig in origines:
+        orig = normalize_value(orig)
+        if not orig:
+            continue
+
+        # Cas spécial: extraction vers type_production
+        if orig in ORIGINE_EXTRACT:
+            extract = ORIGINE_EXTRACT[orig]
+            result["type_production"] = extract["value"]
+            continue
+
+        # Mapping standard
+        if orig in ORIGINE_MAPPING:
+            normalized_origines.append(ORIGINE_MAPPING[orig])
+        else:
+            normalized_origines.append(orig)
+
+    if normalized_origines:
+        result["origine"] = ", ".join(normalized_origines)
+
+    return result
+
+
+def normalize_qualite(qualite: Optional[str]) -> Optional[str]:
+    """Normalise une qualité."""
+    if not qualite:
+        return None
+
+    qualite = normalize_value(qualite)
+    return QUALITE_MAPPING.get(qualite, qualite)
+
+
+def normalize_decoupe(decoupe: Optional[str]) -> Optional[str]:
+    """Normalise une découpe."""
+    if not decoupe:
+        return None
+
+    decoupe = normalize_value(decoupe)
+    # Mapping FT → FILET
+    if decoupe == "FT":
+        return "FILET"
+    return decoupe
+
+
+def normalize_conservation(conservation: Optional[str]) -> Optional[str]:
+    """Normalise une conservation."""
+    if not conservation:
+        return None
+
+    conservation = normalize_value(conservation)
+    return CONSERVATION_MAPPING.get(conservation, conservation)
+
+
+def normalize_trim(trim: Optional[str]) -> Optional[str]:
+    """Normalise un trim."""
+    if not trim:
+        return None
+
+    trim = normalize_value(trim)
+    return TRIM_MAPPING.get(trim, trim)
+
+
+# =============================================================================
+# FONCTIONS SPÉCIFIQUES DEMARNE
+# =============================================================================
+
+def normalize_demarne_categorie(categorie: Optional[str], product_name: Optional[str] = None) -> dict:
+    """
+    Normalise une catégorie Demarne en extrayant:
+    - categorie: Espèce pure
+    - type_production: SAUVAGE ou ELEVAGE
+    - qualite: SUP, PREMIUM, LABEL ROUGE
+    - etat: ENTIER, VIDE, CUIT, etc.
+    - origine_from_categorie: Origine extraite de la catégorie
+
+    Args:
+        categorie: Catégorie Demarne brute (ex: "SAUMON SUPÉRIEUR NORVÈGE")
+        product_name: Nom du produit pour contexte
+
+    Returns:
+        dict avec les champs extraits
+    """
+    result = {
+        "categorie": None,
+        "type_production": None,
+        "qualite": None,
+        "etat": None,
+        "origine_from_categorie": None,
+    }
+
+    if not categorie:
+        return result
+
+    cat_upper = remove_accents(categorie.upper().strip())
+
+    # 1. Extraire l'espèce
+    for pattern, species in DEMARNE_SPECIES_PATTERNS:
+        if re.search(pattern, cat_upper, re.IGNORECASE):
+            result["categorie"] = species
+            break
+
+    # Si pas d'espèce trouvée, garder la catégorie originale
+    if not result["categorie"]:
+        result["categorie"] = cat_upper
+
+    # 2. Extraire le type de production
+    for pattern, type_prod in DEMARNE_TYPE_PRODUCTION_PATTERNS:
+        if re.search(pattern, cat_upper, re.IGNORECASE):
+            result["type_production"] = type_prod
+            break
+
+    # 3. Extraire la qualité
+    for pattern, qualite in DEMARNE_QUALITE_PATTERNS:
+        if re.search(pattern, cat_upper, re.IGNORECASE):
+            result["qualite"] = qualite
+            break
+
+    # 4. Extraire l'état
+    for pattern, etat in DEMARNE_ETAT_PATTERNS:
+        if re.search(pattern, cat_upper, re.IGNORECASE):
+            result["etat"] = etat
+            break
+
+    # 5. Extraire l'origine depuis la catégorie
+    for pattern, origine in DEMARNE_ORIGINE_PATTERNS:
+        if re.search(pattern, cat_upper, re.IGNORECASE):
+            result["origine_from_categorie"] = origine
+            break
+
+    return result
+
+
+def normalize_demarne_variante(variante: Optional[str]) -> dict:
+    """
+    Normalise une variante Demarne en extrayant:
+    - decoupe: FILET, DOS, QUEUE, etc.
+    - etat: ENTIER, VIVANT, CUIT, etc.
+
+    Args:
+        variante: Variante Demarne brute
+
+    Returns:
+        dict avec 'decoupe' et 'etat'
+    """
+    result = {"decoupe": None, "etat": None}
+
+    if not variante:
+        return result
+
+    var_upper = remove_accents(variante.upper().strip())
+
+    # 1. Extraire la découpe
+    for pattern, decoupe in DEMARNE_DECOUPE_PATTERNS:
+        if re.search(pattern, var_upper, re.IGNORECASE):
+            result["decoupe"] = decoupe
+            break
+
+    # 2. Extraire l'état
+    for pattern, etat in DEMARNE_ETAT_PATTERNS:
+        if re.search(pattern, var_upper, re.IGNORECASE):
+            result["etat"] = etat
+            break
+
+    return result
+
+
+def normalize_demarne_label(label: Optional[str]) -> dict:
+    """
+    Normalise un label Demarne en extrayant:
+    - label: MSC, BIO, ASC, LABEL ROUGE, IGP, AOP
+    - trim: TRIM_B, TRIM_D, TRIM_E
+
+    Args:
+        label: Label Demarne brut
+
+    Returns:
+        dict avec 'label' et 'trim'
+    """
+    result = {"label": None, "trim": None}
+
+    if not label:
+        return result
+
+    label_upper = remove_accents(label.upper().strip())
+
+    # 1. Extraire les labels officiels
+    labels_found = []
+    for official_label in DEMARNE_LABELS:
+        if official_label in label_upper:
+            labels_found.append(official_label)
+
+    if labels_found:
+        result["label"] = ", ".join(labels_found)
+
+    # 2. Extraire le trim
+    trim_match = re.search(r'TRIM\s*([BCDE])', label_upper)
+    if trim_match:
+        result["trim"] = f"TRIM_{trim_match.group(1)}"
+
+    return result
+
+
+def clean_demarne_origine(origine: Optional[str]) -> Optional[str]:
+    """
+    Nettoie une origine Demarne:
+    - Filtre les poids erronés (ex: "200 grs", "1 kg")
+    - Normalise les variations orthographiques
+
+    Args:
+        origine: Origine Demarne brute
+
+    Returns:
+        Origine nettoyée ou None si c'est un poids
+    """
+    if not origine:
+        return None
+
+    origine_str = str(origine).strip()
+
+    # Filtrer les poids (patterns: "X kg", "X grs", "Xgrs")
+    if re.match(r'^\d+\s*(kg|grs?|g)\s*$', origine_str, re.IGNORECASE):
+        return None
+
+    # Normaliser
+    origine_upper = remove_accents(origine_str.upper())
+
+    # Appliquer le mapping de normalisation
+    if origine_upper in DEMARNE_ORIGINE_MAPPING:
+        return DEMARNE_ORIGINE_MAPPING[origine_upper]
+
+    return origine_upper
+
+
+# =============================================================================
+# EXTRACTION D'ESPÈCE
+# =============================================================================
+
+SPECIES_PATTERNS = [
+    # Patterns triés du plus spécifique au plus générique
+    (r'\bROUGET\s*BARBET\b', 'ROUGET BARBET'),
+    (r'\bSAINT\s*PIERRE\b', 'SAINT PIERRE'),
+    (r'\bST\s*PIERRE\b', 'SAINT PIERRE'),
+    (r'\bLIEU\s*JAUNE\b', 'LIEU JAUNE'),
+    (r'\bLIEU\s*NOIR\b', 'LIEU NOIR'),
+    (r'\bDORADE\s*PAGRE\b', 'DORADE PAGRE'),
+    (r'\bCOQUILLE\s*ST\s*JACQUES\b', 'COQUILLE ST JACQUES'),
+    (r'\bNOIX\s*ST\s*JACQUES\b', 'NOIX ST JACQUES'),
+    # Espèces simples
+    (r'\bBAR\b', 'BAR'),
+    (r'\bBARBUE\b', 'BARBUE'),
+    (r'\bTURBOT\b', 'TURBOT'),
+    (r'\bSOLE\b', 'SOLE'),
+    (r'\bCABILLAUD\b', 'CABILLAUD'),
+    (r'\bMERLU\b', 'MERLU'),
+    (r'\bMERLAN\b', 'MERLAN'),
+    (r'\bLOTTE\b', 'LOTTE'),
+    (r'\bDORADE\b', 'DORADE'),
+    (r'\bRAIE\b', 'RAIE'),
+    (r'\bSAUMON\b', 'SAUMON'),
+    (r'\bTHON\b', 'THON'),
+    (r'\bMAIGRE\b', 'MAIGRE'),
+    (r'\bCONGRE\b', 'CONGRE'),
+    (r'\bGRONDIN\b', 'GRONDIN'),
+    (r'\bPAGRE\b', 'PAGRE'),
+    (r'\bENCORNET\b', 'ENCORNET'),
+    (r'\bPOULPE\b', 'POULPE'),
+    (r'\bSEICHE\b', 'SEICHE'),
+    (r'\bHOMARD\b', 'HOMARD'),
+    (r'\bLANGOUSTE\b', 'LANGOUSTE'),
+    (r'\bLANGOUSTINE\b', 'LANGOUSTINE'),
+    (r'\bCREVETTE\b', 'CREVETTES'),
+    (r'\bLIMANDE\b', 'LIMANDE'),
+    (r'\bCARRELET\b', 'CARRELET'),
+]
+
+
+def extract_species_from_name(product_name: str) -> Optional[str]:
+    """
+    Extrait l'espèce depuis un nom de produit.
+    Utilisé notamment pour les catégories FILET.
+    """
+    if not product_name:
+        return None
+
+    product_upper = product_name.upper()
+
+    for pattern, species in SPECIES_PATTERNS:
+        if re.search(pattern, product_upper):
+            return species
+
+    return None
+
+
+# =============================================================================
+# FONCTION PRINCIPALE D'HARMONISATION
+# =============================================================================
+
+
+# MAPPING DES CLÉS STRUCTURELLES (CamelCase -> snake_case)
+STRUCTURAL_KEYS_MAPPING = {
+    "Date": "date",
+    "Vendor": "vendor",
+    "Code_Provider": "code_provider",
+    "Code": "code_provider",  # Demarne uses "Code" instead of "Code_Provider"
+    "ProductName": "product_name",
+    "Prix": "prix",
+    "Tarif": "prix",  # Alias
+    "Colisage": "colisage",
+    "Unite_Facturee": "unite_facturee",
+    "Infos_Brutes": "infos_brutes",
+}
+
+def harmonize_product(product: dict, vendor: str = None) -> dict:
+    """
+    Harmonise un produit selon les règles définies.
+
+    Args:
+        product: Dictionnaire produit (sortie brute d'un parseur)
+        vendor: Nom du fournisseur (pour règles spécifiques)
+
+    Returns:
+        Dictionnaire produit harmonisé avec tous les champs normalisés
+    """
+    result = product.copy()
+
+    # 1. Harmonisation des attributs produits (spécifique vs générique)
+    if vendor and vendor.lower() == "demarne":
+        result = _harmonize_demarne_product(result)
+    else:
+        # Harmonisation générique
+        
+        # --- Categorie ---
+        cat_result = normalize_categorie(
+            result.get("Categorie") or result.get("categorie"),
+            result.get("ProductName") or result.get("product_name")
+        )
+        result["categorie"] = cat_result["categorie"]
+
+        # Si on a extrait une découpe depuis la catégorie, l'ajouter
+        if cat_result["decoupe_from_categorie"]:
+            if not result.get("decoupe") and not result.get("Decoupe"):
+                result["decoupe"] = cat_result["decoupe_from_categorie"]
+
+        # --- Methode_Peche ---
+        methode_result = normalize_methode_peche(
+            result.get("Methode_Peche") or result.get("methode_peche")
+        )
+        result["methode_peche"] = methode_result["methode_peche"]
+
+        # Champs extraits
+        if methode_result["type_production"]:
+            result["type_production"] = methode_result["type_production"]
+        if methode_result["technique_abattage"]:
+            result["technique_abattage"] = methode_result["technique_abattage"]
+
+        # --- Etat ---
+        etat_result = normalize_etat(
+            result.get("Etat") or result.get("etat")
+        )
+        result["etat"] = etat_result["etat"]
+        if etat_result["couleur"]:
+            result["couleur"] = etat_result["couleur"]
+
+        # --- Origine ---
+        origine_result = normalize_origine(
+            result.get("Origine") or result.get("origine")
+        )
+        result["origine"] = origine_result["origine"]
+        # Ne pas écraser type_production si déjà défini
+        if origine_result["type_production"] and not result.get("type_production"):
+            result["type_production"] = origine_result["type_production"]
+
+        # --- Qualite ---
+        result["qualite"] = normalize_qualite(
+            result.get("Qualite") or result.get("qualite")
+        )
+
+        # --- Decoupe ---
+        # Ne pas écraser si déjà défini par normalize_categorie
+        if not result.get("decoupe"):
+            result["decoupe"] = normalize_decoupe(
+                result.get("Decoupe") or result.get("decoupe")
+            )
+
+        # --- Calibre ---
+        result["calibre"] = normalize_calibre(
+            result.get("Calibre") or result.get("calibre")
+        )
+
+        # --- Conservation ---
+        result["conservation"] = normalize_conservation(
+            result.get("Conservation") or result.get("conservation")
+        )
+
+        # --- Trim ---
+        result["trim"] = normalize_trim(
+            result.get("Trim") or result.get("trim")
+        )
+
+        # --- Nettoyage: supprimer les anciennes clés en CamelCase (attributs produits) ---
+        old_keys = [
+            "Categorie", "Methode_Peche", "Qualite", "Decoupe", "Etat",
+            "Origine", "Calibre", "Conservation", "Trim"
+        ]
+        for key in old_keys:
+            if key in result and key.lower() in result:
+                del result[key]
+
+    # 2. Harmonisation structurelle (renommage des clés principales)
+    # Appliquer le mapping CamelCase -> snake_case
+    for old_key, new_key in STRUCTURAL_KEYS_MAPPING.items():
+        if old_key in result:
+            if new_key not in result:
+                result[new_key] = result[old_key]
+            # Supprimer l'ancienne clé sauf si c'est la même
+            if old_key != new_key:
+                del result[old_key]
+    
+    # S'assurer que code_provider est toujours une string (Demarne a des codes numériques)
+    if "code_provider" in result and result["code_provider"] is not None:
+        result["code_provider"] = str(result["code_provider"])
+
+    return result
+
+
+def _harmonize_demarne_product(product: dict) -> dict:
+    """
+    Harmonise un produit Demarne avec ses règles spécifiques.
+
+    Demarne a une structure différente:
+    - Categorie contient espèce + type_production + origine + qualite
+    - Variante contient découpe + état
+    - Label contient certifications + trim
+
+    Args:
+        product: Dictionnaire produit Demarne
+
+    Returns:
+        Dictionnaire produit harmonisé
+    """
+    result = product.copy()
+
+    # --- 1. Traiter la Categorie Demarne ---
+    cat_result = normalize_demarne_categorie(
+        result.get("Categorie") or result.get("categorie"),
+        result.get("ProductName") or result.get("product_name")
+    )
+    result["categorie"] = cat_result["categorie"]
+
+    # Extraire type_production, qualite, etat, origine depuis la catégorie
+    if cat_result["type_production"]:
+        result["type_production"] = cat_result["type_production"]
+    if cat_result["qualite"]:
+        result["qualite"] = cat_result["qualite"]
+    if cat_result["etat"]:
+        result["etat"] = cat_result["etat"]
+
+    # --- 2. Traiter la Variante Demarne ---
+    var_result = normalize_demarne_variante(
+        result.get("Variante") or result.get("variante")
+    )
+    # Ne pas écraser si déjà défini depuis la catégorie
+    if var_result["decoupe"]:
+        result["decoupe"] = var_result["decoupe"]
+    if var_result["etat"] and not result.get("etat"):
+        result["etat"] = var_result["etat"]
+
+    # --- 3. Traiter le Label Demarne ---
+    label_result = normalize_demarne_label(
+        result.get("Label") or result.get("label")
+    )
+    if label_result["label"]:
+        result["label"] = label_result["label"]
+    if label_result["trim"]:
+        result["trim"] = label_result["trim"]
+
+    # --- 4. Traiter l'Origine Demarne ---
+    # D'abord nettoyer la colonne Origine (enlever les poids)
+    origine_cleaned = clean_demarne_origine(
+        result.get("Origine") or result.get("origine")
+    )
+
+    # Si l'origine nettoyée est vide mais on a extrait une origine de la catégorie
+    if not origine_cleaned and cat_result.get("origine_from_categorie"):
+        result["origine"] = cat_result["origine_from_categorie"]
+    elif origine_cleaned:
+        result["origine"] = origine_cleaned
+    else:
+        result["origine"] = None
+
+    # --- 5. Traiter la Methode_Peche ---
+    methode_result = normalize_methode_peche(
+        result.get("Methode_Peche") or result.get("methode_peche")
+    )
+    result["methode_peche"] = methode_result["methode_peche"]
+
+    # Ne pas écraser type_production si déjà défini
+    if methode_result["type_production"] and not result.get("type_production"):
+        result["type_production"] = methode_result["type_production"]
+    if methode_result["technique_abattage"]:
+        result["technique_abattage"] = methode_result["technique_abattage"]
+
+    # --- 6. Traiter le Calibre ---
+    result["calibre"] = normalize_calibre(
+        result.get("Calibre") or result.get("calibre")
+    )
+
+    # --- 7. Nettoyage des anciennes clés ---
+    old_keys = [
+        "Categorie", "Variante", "Methode_Peche", "Label", "Calibre", "Origine",
+        "Qualite", "Decoupe", "Etat", "Conservation", "Trim"
+    ]
+    for key in old_keys:
+        lower_key = key.lower()
+        if key in result and lower_key in result:
+            del result[key]
+
+    return result
+
+
+def harmonize_products(products: list[dict], vendor: str = None) -> list[dict]:
+    """
+    Harmonise une liste de produits.
+
+    Args:
+        products: Liste de dictionnaires produits
+        vendor: Nom du fournisseur
+
+    Returns:
+        Liste de dictionnaires produits harmonisés
+    """
+    return [harmonize_product(p, vendor) for p in products]

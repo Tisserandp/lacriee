@@ -76,3 +76,6 @@ htmlcov/
 # OS artifacts
 nul
 
+# Sample files
+Samples/
+

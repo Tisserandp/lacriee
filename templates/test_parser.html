@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Parseurs - LaCriee</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: white;
+      margin: 0 0 1.5rem 0;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Upload Section */
+    .upload-section {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .upload-row {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .upload-row label {
+      font-weight: 600;
+      color: #333;
+    }
+    select, input[type="file"] {
+      padding: 0.6rem 1rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: white;
+    }
+    select:focus, input[type="file"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .btn {
+      padding: 0.7rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.95rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Stats Section */
+    .stats-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #667eea;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.3rem;
+    }
+
+    /* Results Section */
+    .results-section {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .results-header h2 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: #333;
+    }
+    .search-box {
+      padding: 0.5rem 1rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      width: 250px;
+      font-size: 0.9rem;
+    }
+
+    /* Category Groups */
+    .category-group {
+      margin-bottom: 1.5rem;
+      border: 1px solid #e8e8e8;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .category-header {
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      padding: 0.8rem 1rem;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .category-header:hover {
+      background: linear-gradient(135deg, #e9ecef, #dee2e6);
+    }
+    .category-count {
+      background: #667eea;
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+    }
+    .category-content {
+      padding: 0;
+    }
+    .category-content.collapsed {
+      display: none;
+    }
+
+    /* Product Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      background: #f8f9fa;
+      padding: 0.7rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #555;
+      border-bottom: 2px solid #e0e0e0;
+      position: sticky;
+      top: 0;
+    }
+    td {
+      padding: 0.6rem 0.7rem;
+      border-bottom: 1px solid #eee;
+      font-size: 0.9rem;
+    }
+    tr:hover {
+      background: #f8f9ff;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 0.3rem;
+    }
+    .badge-methode { background: #e3f2fd; color: #1565c0; }
+    .badge-calibre { background: #fff3e0; color: #e65100; }
+    .badge-qualite { background: #e8f5e9; color: #2e7d32; }
+    .badge-decoupe { background: #fce4ec; color: #c2185b; }
+    .badge-etat { background: #f3e5f5; color: #7b1fa2; }
+    .badge-origine { background: #e0f7fa; color: #00838f; }
+
+    .price-cell {
+      font-weight: 600;
+      color: #2e7d32;
+    }
+    .price-cell.no-price {
+      color: #999;
+      font-weight: 400;
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #666;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Error */
+    .error-msg {
+      background: #ffebee;
+      color: #c62828;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #888;
+    }
+    .empty-state svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Test des Parseurs PDF</h1>
+
+    <div class="upload-section">
+      <div class="upload-row">
+        <label for="parserSelect">Parseur :</label>
+        <select id="parserSelect">
+          <option value="laurent_daniel">Laurent Daniel</option>
+          <!-- Autres parseurs à ajouter plus tard -->
+        </select>
+
+        <label for="pdfFile">Fichier PDF :</label>
+        <input type="file" id="pdfFile" accept=".pdf">
+
+        <button class="btn btn-primary" id="parseBtn" onclick="parseFile()">
+          🚀 Analyser
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-section" id="statsSection" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Produits</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statWithPrice">0</div>
+        <div class="stat-label">Avec Prix</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statCoverage">0%</div>
+        <div class="stat-label">Couverture</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statCategories">0</div>
+        <div class="stat-label">Catégories</div>
+      </div>
+    </div>
+
+    <div class="results-section" id="resultsSection">
+      <div class="empty-state" id="emptyState">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+        <p>Sélectionnez un fichier PDF et cliquez sur "Analyser"</p>
+      </div>
+
+      <div id="loadingState" style="display: none;">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Analyse en cours...</p>
+        </div>
+      </div>
+
+      <div id="errorState" style="display: none;"></div>
+
+      <div id="resultsContent" style="display: none;">
+        <div class="results-header">
+          <h2>📊 Résultats</h2>
+          <input type="text" class="search-box" id="searchBox" placeholder="🔍 Rechercher un produit..." oninput="filterProducts()">
+        </div>
+        <div id="categoriesContainer"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let allProducts = [];
+
+async function parseFile() {
+  const parser = document.getElementById('parserSelect').value;
+  const fileInput = document.getElementById('pdfFile');
+
+  if (!fileInput.files.length) {
+    alert('Veuillez sélectionner un fichier PDF');
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // Show loading
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('errorState').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('statsSection').style.display = 'none';
+  document.getElementById('parseBtn').disabled = true;
+
+  try {
+    let endpoint = '';
+    if (parser === 'laurent_daniel') {
+      endpoint = '/api/testLaurentDpdf';
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Erreur serveur');
+    }
+
+    const data = await response.json();
+    displayResults(data, file.name);
+
+  } catch (error) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'block';
+    document.getElementById('errorState').innerHTML = `
+      <div class="error-msg">
+        <strong>❌ Erreur:</strong> ${error.message}
+      </div>
+    `;
+  } finally {
+    document.getElementById('parseBtn').disabled = false;
+  }
+}
+
+function displayResults(data, filename) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+  document.getElementById('statsSection').style.display = 'grid';
+
+  // Get all products from all_data
+  allProducts = data.all_data || [];
+
+  // Stats
+  const total = data.total_products || allProducts.length;
+  const withPrice = data.products_with_price || allProducts.filter(p => p.Prix != null).length;
+  const coverage = data.price_coverage || (total > 0 ? Math.round(100 * withPrice / total) + '%' : '0%');
+
+  // Count categories
+  const categories = [...new Set(allProducts.map(p => p.Categorie || 'Sans catégorie'))];
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statWithPrice').textContent = withPrice;
+  document.getElementById('statCoverage').textContent = coverage;
+  document.getElementById('statCategories').textContent = categories.length;
+
+  renderProducts(allProducts);
+}
+
+function renderProducts(products) {
+  const container = document.getElementById('categoriesContainer');
+  container.innerHTML = '';
+
+  // Group by category
+  const byCategory = {};
+  products.forEach(p => {
+    const cat = p.Categorie || 'Sans catégorie';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(p);
+  });
+
+  // Sort categories
+  const sortedCats = Object.keys(byCategory).sort();
+
+  sortedCats.forEach(cat => {
+    const prods = byCategory[cat];
+    const group = document.createElement('div');
+    group.className = 'category-group';
+
+    const header = document.createElement('div');
+    header.className = 'category-header';
+    header.innerHTML = `
+      <span>📦 ${cat}</span>
+      <span class="category-count">${prods.length} produits</span>
+    `;
+    header.onclick = () => {
+      const content = group.querySelector('.category-content');
+      content.classList.toggle('collapsed');
+    };
+
+    const content = document.createElement('div');
+    content.className = 'category-content';
+
+    const table = document.createElement('table');
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Produit</th>
+          <th>Prix</th>
+          <th>Attributs</th>
+          <th>Infos</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+    prods.forEach(p => {
+      const tr = document.createElement('tr');
+
+      // Build badges
+      let badges = '';
+      if (p.Methode_Peche) badges += `<span class="badge badge-methode">${p.Methode_Peche}</span>`;
+      if (p.Calibre) badges += `<span class="badge badge-calibre">${p.Calibre}</span>`;
+      if (p.Qualite) badges += `<span class="badge badge-qualite">${p.Qualite}</span>`;
+      if (p.Decoupe) badges += `<span class="badge badge-decoupe">${p.Decoupe}</span>`;
+      if (p.Etat) badges += `<span class="badge badge-etat">${p.Etat}</span>`;
+      if (p.Origine) badges += `<span class="badge badge-origine">${p.Origine}</span>`;
+
+      const priceClass = p.Prix != null ? 'price-cell' : 'price-cell no-price';
+      const priceDisplay = p.Prix != null ? `${p.Prix.toFixed(2)} €` : '-';
+
+      tr.innerHTML = `
+        <td><strong>${p.ProductName || '-'}</strong></td>
+        <td class="${priceClass}">${priceDisplay}</td>
+        <td>${badges || '<span style="color:#999">-</span>'}</td>
+        <td style="font-size:0.8rem; color:#666;">${p.Infos_Brutes || '-'}</td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+    content.appendChild(table);
+    group.appendChild(header);
+    group.appendChild(content);
+    container.appendChild(group);
+  });
+}
+
+function filterProducts() {
+  const query = document.getElementById('searchBox').value.toLowerCase();
+
+  if (!query) {
+    renderProducts(allProducts);
+    return;
+  }
+
+  const filtered = allProducts.filter(p => {
+    const searchable = [
+      p.ProductName,
+      p.Categorie,
+      p.Methode_Peche,
+      p.Calibre,
+      p.Qualite,
+      p.Decoupe,
+      p.Etat,
+      p.Origine
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return searchable.includes(query);
+  });
+
+  renderProducts(filtered);
+}
+</script>
+</body>
+</html>

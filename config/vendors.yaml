@@ -1,0 +1,101 @@
+# Configuration des fournisseurs/vendors
+# Ce fichier centralise les informations de chaque vendor
+
+vendors:
+  laurent_daniel:
+    name: "Laurent-Daniel"
+    short_name: "LD"
+    format: "pdf"
+    parser_function: "extract_LD_data_from_pdf"
+    endpoint_post: "/parseLaurentDpdf"
+    endpoint_get: "/parseLaurentDpdf"
+    code_prefix: "LD_"
+    date_pattern: "french_text"  # "12 janvier 2024"
+    sample_file: "Samples/LaurentD/CC.pdf"
+    status: "production"
+    notes: "Parser PDF avec extraction par coordonnées"
+
+  vvqm:
+    name: "VVQM"
+    short_name: "VVQM"
+    format: "pdf"
+    parser_function: "parse_vvq_pdf_data"
+    endpoint_post: "/parseVVQpdf"
+    endpoint_get: "/parseVVQpdf_test"
+    code_prefix: "VVQM_"
+    date_pattern: "dd_mm_yyyy_dot"  # "12.01.2024"
+    sample_file: "Samples/VVQ/GEXPORT.pdf"
+    status: "production"
+    notes: "Parser PDF avec détection de prix en gras"
+
+  demarne:
+    name: "Demarne"
+    short_name: "DEM"
+    format: "excel"
+    parser_function: "parse_demarne_excel_data"
+    parser_structured: "parse_demarne_structured"
+    endpoint_post: "/parseDemarneXLS"
+    endpoint_get: "/parseDemarneXLS"
+    endpoint_structured: "/parseDemarneStructured"
+    code_prefix: ""  # Codes numériques natifs
+    date_pattern: "dd_mm_yyyy_slash"  # "12/01/2024" dans les métadonnées Excel
+    date_location: "excel_header"
+    sample_file: "Samples/Demarne/Classeur1 G19.xlsx"
+    status: "production"
+    notes: "Parser Excel avec gestion des cellules fusionnées"
+    features:
+      - structured_parsing
+      - merged_cells_handling
+      - fr_en_translation
+
+  hennequin:
+    name: "Hennequin"
+    short_name: "HNQ"
+    format: "pdf"
+    parser_function: "extract_hennequin_data_from_pdf"
+    endpoint_post: "/parseHennequinPDF"
+    endpoint_get: null  # Pas d'endpoint GET
+    code_prefix: "HNQ_"
+    date_pattern: "dd_mm_yyyy_slash"  # "12/01/2024"
+    sample_file: null  # En attente de sample
+    status: "pending"
+    notes: "Parser PDF avec classification par coordonnées X"
+
+# Règles de génération de code provider
+code_generation:
+  laurent_daniel:
+    pattern: "{prefix}{product}_{quality}"
+    transforms:
+      - remove_spaces
+
+  vvqm:
+    pattern: "{prefix}{product}_{calibre}"
+    transforms:
+      - replace_spaces_underscore
+      - remove_double_underscore
+
+  demarne:
+    pattern: "{code}"  # Code natif du fournisseur
+
+  hennequin:
+    pattern: "{prefix}{product}"
+    transforms:
+      - lowercase
+      - replace_spaces_underscore
+
+# Règles de génération de keyDate
+key_date:
+  pattern: "{code_provider}_{date}"
+  date_format: "YYYY-MM-DD"
+
+# BigQuery tables
+bigquery:
+  project: "lacriee"
+  dataset: "PROD"
+  tables:
+    staging: "ProvidersPrices_Staging"
+    production: "ProvidersPrices"
+    jobs: "ImportJobs"
+    unknown: "UnknownProducts"
+    codes: "CodesNames"
+    demarne_structured: "DemarneStructured"

@@ -1,0 +1,203 @@
+# Règles de catégorisation des produits
+# Ce fichier centralise les mappings de catégories pour chaque vendor
+# Pattern: si le nom du produit contient le pattern, assigner la catégorie
+
+rules:
+  # Règles pour Laurent-Daniel
+  laurent_daniel:
+    # Règles prioritaires (vérifiées en premier)
+    priority:
+      - pattern: "filet"
+        category: "FILET"
+
+      - pattern: "limande sole"
+        category: "LIMANDE SOLE"
+
+      - pattern: "limande"
+        category: "LIMANDE"
+
+      - pattern: "rgt barbet"
+        category: "ROUGET BARBET"
+
+      - pattern: "rouget"
+        category: "ROUGET BARBET"
+
+      - pattern: "colin"
+        category: "MERLU"
+
+      - pattern: "portion"
+        category: "MERLU"
+
+      - pattern: "friture"
+        category: "MERLU"
+
+      - pattern: "lgtine"
+        category: "LANGOUSTINE"
+
+      - pattern: "langouste rouge"
+        category: "HOMARD"
+
+      - pattern: "encornet"
+        category: "ENCORNET"
+
+      - pattern: "poulpe"
+        category: "ENCORNET"
+
+      - pattern: "aiguillats"
+        category: "AIGUILLATS"
+
+      - pattern: "pageot"
+        category: "DORADE / PAGRE"
+
+      - pattern: "dorade"
+        category: "DORADE / PAGRE"
+
+      - pattern: "daurade"
+        category: "DORADE / PAGRE"
+
+      - pattern: "pagre"
+        category: "DORADE / PAGRE"
+
+      - pattern: "lieu jaune"
+        category: "LIEU JAUNE / CABILLAUD"
+
+      - pattern: "cabillaud"
+        category: "LIEU JAUNE / CABILLAUD"
+
+      - pattern: "anon"
+        category: "LIEU JAUNE / CABILLAUD"
+
+    # Coquillages
+    coquillages:
+      - "amande"
+      - "coque"
+      - "bigorneaux gr"
+      - "clams"
+      - "palourde"
+      - "praire"
+      - "telline"
+      - "tourteaux"
+      - "vernis"
+      - "ormeaux"
+      - "venus"
+
+    # Règles basées sur le préfixe du nom
+    prefix_rules:
+      - prefix: "lieu jaune"
+        category: "LIEU"
+
+      - prefix: "cabillaud"
+        category: "CABILLAUD"
+
+      - prefix: "anon"
+        category: "ANON"
+
+      - prefix: "carrelet"
+        category: "CARRELET"
+
+      - prefix: "sardine"
+        category: "SARDINE"
+
+      - prefix: "maquereaux"
+        category: "MAQUEREAUX"
+
+      - prefix: "merou"
+        category: "MEROU"
+
+      - prefix: "merlan"
+        category: "MERLAN"
+
+      - prefix: "maigre"
+        category: "MAIGRE"
+
+      - prefix: "saumon"
+        category: "SAUMON"
+
+      - prefix: "st pierre"
+        category: "SAINT PIERRE"
+
+  # Règles pour Hennequin
+  hennequin:
+    mappings:
+      - from: "BAR PETIT BATEAU"
+        to: "BAR"
+
+      - from: "BAR LIGNE"
+        to: "BAR"
+
+      - from: "DORADE ROYALE"
+        to: "DORADE"
+
+      - from: "DORADE SAR"
+        to: "DORADE"
+
+      - from: "SOLE PETIT BATEAU"
+        to: "SOLE"
+
+      - from: "SOLE FILET"
+        to: "SOLE"
+
+      - from: "TURBOT PETIT BATEAU"
+        to: "TURBOT"
+
+  # Règles pour VVQM
+  vvqm:
+    # VVQM utilise la table CodesNames pour les catégories
+    use_codes_names: true
+
+  # Règles pour Demarne
+  demarne:
+    # Demarne utilise les catégories du fichier Excel (Categorie column)
+    use_excel_category: true
+
+# Catégorie par défaut si aucune règle ne match
+default_category: "AUTRES"
+
+# Liste des catégories standard
+standard_categories:
+  - "AIGUILLATS"
+  - "ANCHOIS"
+  - "ANON"
+  - "BAR"
+  - "CABILLAUD"
+  - "CALAMAR"
+  - "CARRELET"
+  - "CONGRE"
+  - "COQUILLAGES"
+  - "CRABE"
+  - "CREVETTE"
+  - "DORADE"
+  - "DORADE / PAGRE"
+  - "ENCORNET"
+  - "ESPADON"
+  - "FILET"
+  - "GRONDIN"
+  - "HOMARD"
+  - "LANGOUSTE"
+  - "LANGOUSTINE"
+  - "LIEU"
+  - "LIEU JAUNE / CABILLAUD"
+  - "LIMANDE"
+  - "LIMANDE SOLE"
+  - "LOTTE"
+  - "MAIGRE"
+  - "MAQUEREAUX"
+  - "MERLAN"
+  - "MERLU"
+  - "MEROU"
+  - "MULET"
+  - "OURSIN"
+  - "PAGEOT"
+  - "RAIE"
+  - "RASCASSE"
+  - "ROUGET BARBET"
+  - "SAINT PIERRE"
+  - "SARDINE"
+  - "SAUMON"
+  - "SEICHE"
+  - "SOLE"
+  - "THON"
+  - "TOURTEAU"
+  - "TRUITE"
+  - "TURBOT"
+  - "AUTRES"

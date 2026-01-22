@@ -1,0 +1,2217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview Parser Audierne - 2025-09-30</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        header .subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1e3a5f;
+        }
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .category-section {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .category-header {
+            background: #e8f4f8;
+            padding: 15px 20px;
+            font-weight: bold;
+            color: #1e3a5f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .category-header:hover {
+            background: #d0e8f0;
+        }
+        .category-header .count {
+            background: #1e3a5f;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+        .category-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .category-content.open {
+            max-height: 2000px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .price {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .code {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #666;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .search-box {
+            margin-bottom: 20px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus {
+            border-color: #1e3a5f;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #1e3a5f;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2d5a87;
+        }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        .hidden {
+            display: none !important;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        /* Badges pour les attributs */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin: 1px 2px;
+            white-space: nowrap;
+        }
+        .badge-calibre {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .badge-methode {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .badge-origine {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .badge-qualite {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .badge-decoupe {
+            background: #eceff1;
+            color: #546e7a;
+        }
+        .badge-etat {
+            background: #fffde7;
+            color: #f9a825;
+        }
+        .badge-trim {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+        .attributes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Viviers d'Audierne - Parser Preview</h1>
+            <div class="subtitle">Date du document: 2025-09-30 | Genere le 15/01/2026 05:11</div>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value">174</div>
+                <div class="label">Produits</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">31</div>
+                <div class="label">Categories</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">21.65 EUR</div>
+                <div class="label">Prix moyen</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">2.10 - 95.60</div>
+                <div class="label">Min / Max</div>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Rechercher un produit..." onkeyup="filterProducts()">
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="expandAll()">Tout ouvrir</button>
+            <button class="btn btn-secondary" onclick="collapseAll()">Tout fermer</button>
+        </div>
+
+        <div id="categories">
+
+            <div class="category-section" data-category="BAR">
+                <div class="category-header" onclick="toggleCategory('bar')">
+                    <span>BAR</span>
+                    <span class="count">6</span>
+                </div>
+                <div class="category-content" id="bar">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="bar chalut t12 (2/3kg)">
+                                <td>BAR CHALUT T12 (2/3kg)</td>
+                                <td class="price">24.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12 (2/3KG)</span><span class="badge badge-methode">CHALUT</span></div></td>
+                                <td><span class="code">AUD_bar_chalut_t12_2_3kg</span></td>
+                            </tr>
+
+                            <tr data-product="bar chalut t3 (0,500/1kg)">
+                                <td>BAR CHALUT T3 (0,500/1kg)</td>
+                                <td class="price">19.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (0,500/1KG)</span><span class="badge badge-methode">CHALUT</span></div></td>
+                                <td><span class="code">AUD_bar_chalut_t3_0_500_1kg</span></td>
+                            </tr>
+
+                            <tr data-product="bar ligne t12 (2/3kg)">
+                                <td>BAR LIGNE T12 (2/3kg)</td>
+                                <td class="price">29.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12 (2/3KG)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_bar_ligne_t12_2_3kg</span></td>
+                            </tr>
+
+                            <tr data-product="bar ligne t2 (1/2 kg)">
+                                <td>BAR LIGNE T2 (1/2 kg)</td>
+                                <td class="price">25.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (1/2 KG)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_bar_ligne_t2_1_2_kg</span></td>
+                            </tr>
+
+                            <tr data-product="bar ligne t 3 (500/700gr)">
+                                <td>BAR LIGNE T 3 (500/700gr)</td>
+                                <td class="price">24.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (500/700GR)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_bar_ligne_t_3_500_700gr</span></td>
+                            </tr>
+
+                            <tr data-product="bar ligne t 3 (700gr/1kg)">
+                                <td>BAR LIGNE T 3 (700gr/1kg)</td>
+                                <td class="price">24.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (700GR/1KG)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_bar_ligne_t_3_700gr_1kg</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="BARBUE">
+                <div class="category-header" onclick="toggleCategory('barbue')">
+                    <span>BARBUE</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="barbue">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="barbue t1 (2/3kg) pb">
+                                <td>BARBUE T1 (2/3kg) PB</td>
+                                <td class="price">31.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (2/3KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_barbue_t1_2_3kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="barbue t2 (1/2kg) pb">
+                                <td>BARBUE T2 (1/2kg) PB</td>
+                                <td class="price">23.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (1/2KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_barbue_t2_1_2kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="barbue t3 (0,350/1kg) pb">
+                                <td>BARBUE T3 (0,350/1kg) PB</td>
+                                <td class="price">20.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (0,350/1KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_barbue_t3_0_350_1kg_pb</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="CABILLAUD">
+                <div class="category-header" onclick="toggleCategory('cabillaud')">
+                    <span>CABILLAUD</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="cabillaud">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="cabillaud 2/4 vdk *">
+                                <td>CABILLAUD 2/4 VDK *</td>
+                                <td class="price">14.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span><span class="badge badge-origine">DANEMARK</span></div></td>
+                                <td><span class="code">AUD_cabillaud_2_4_vdk</span></td>
+                            </tr>
+
+                            <tr data-product="pageot t2 (500gr/1kg) pb">
+                                <td>PAGEOT T2 (500gr/1kg) PB</td>
+                                <td class="price">15.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (500GR/1KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_pageot_t2_500gr_1kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="pageot t3 (2/500gr) pb">
+                                <td>PAGEOT T3 (2/500gr) PB</td>
+                                <td class="price">14.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (2/500GR)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_pageot_t3_2_500gr_pb</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="CONGRE">
+                <div class="category-header" onclick="toggleCategory('congre')">
+                    <span>CONGRE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="congre">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="chinchard a queue jaune 4/600 600/+">
+                                <td>CHINCHARD A QUEUE JAUNE 4/600 600/+</td>
+                                <td class="price">5.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_chinchard_a_queue_jaune_4_600_600</span></td>
+                            </tr>
+
+                            <tr data-product="chinchard 4/600">
+                                <td>CHINCHARD 4/600</td>
+                                <td class="price">4.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span></div></td>
+                                <td><span class="code">AUD_chinchard_4_600</span></td>
+                            </tr>
+
+                            <tr data-product="congre t1 (7kg/+)">
+                                <td>CONGRE T1 (7kg/+)</td>
+                                <td class="price">6.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (7KG/+)</span></div></td>
+                                <td><span class="code">AUD_congre_t1_7kg</span></td>
+                            </tr>
+
+                            <tr data-product="congre t31 (3/5 kg)">
+                                <td>CONGRE T31 (3/5 kg)</td>
+                                <td class="price">5.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T31 (3/5 KG)</span></div></td>
+                                <td><span class="code">AUD_congre_t31_3_5_kg</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="COQUILLAGES">
+                <div class="category-header" onclick="toggleCategory('coquillages')">
+                    <span>COQUILLAGES</span>
+                    <span class="count">7</span>
+                </div>
+                <div class="category-content" id="coquillages">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="huitres creuses n°2  cancale (vda)">
+                                <td>HUITRES CREUSES N°2  CANCALE (vda)</td>
+                                <td class="price">8.20 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">N°2</span><span class="badge badge-origine">CANCALE, AUDIERNE</span></div></td>
+                                <td><span class="code">AUD_huitres_creuses_n_2_cancale_vda</span></td>
+                            </tr>
+
+                            <tr data-product="huitres creuses n°3  cancale (vda)">
+                                <td>HUITRES CREUSES N°3  CANCALE (vda)</td>
+                                <td class="price">8.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">N°3</span><span class="badge badge-origine">CANCALE, AUDIERNE</span></div></td>
+                                <td><span class="code">AUD_huitres_creuses_n_3_cancale_vda</span></td>
+                            </tr>
+
+                            <tr data-product="huitres creuses speciales n°2  - vda">
+                                <td>HUITRES CREUSES SPECIALES N°2  - VDA</td>
+                                <td class="price">9.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">N°2</span><span class="badge badge-origine">AUDIERNE</span><span class="badge badge-etat">SPECIALES</span></div></td>
+                                <td><span class="code">AUD_huitres_creuses_speciales_n_2_vda</span></td>
+                            </tr>
+
+                            <tr data-product="huitres creuses speciales n°3  - vda">
+                                <td>HUITRES CREUSES SPECIALES N°3  - VDA</td>
+                                <td class="price">9.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">N°3</span><span class="badge badge-origine">AUDIERNE</span><span class="badge badge-etat">SPECIALES</span></div></td>
+                                <td><span class="code">AUD_huitres_creuses_speciales_n_3_vda</span></td>
+                            </tr>
+
+                            <tr data-product="ormeaux">
+                                <td>ORMEAUX</td>
+                                <td class="price">39.10 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_ormeaux</span></td>
+                            </tr>
+
+                            <tr data-product="palourdes japonaises moy ad">
+                                <td>PALOURDES JAPONAISES MOY AD</td>
+                                <td class="price">19.50 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_palourdes_japonaises_moy_ad</span></td>
+                            </tr>
+
+                            <tr data-product="pouce-pied france">
+                                <td>POUCE-PIED France</td>
+                                <td class="price">20.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">FRANCE</span></div></td>
+                                <td><span class="code">AUD_pouce_pied_france</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="CRUSTACES CUITS PAST">
+                <div class="category-header" onclick="toggleCategory('crustaces_cuits_past')">
+                    <span>CRUSTACES CUITS PAST</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="crustaces_cuits_past">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="chair de tourteaux (10 x 500gr) premium">
+                                <td>CHAIR DE TOURTEAUX (10 x 500gr) PREMIUM</td>
+                                <td class="price">94.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-qualite">PREMIUM</span><span class="badge badge-decoupe">CHAIR</span></div></td>
+                                <td><span class="code">AUD_chair_de_tourteaux_10_x_500gr_premium</span></td>
+                            </tr>
+
+                            <tr data-product="chair tourteaux 500gr premium">
+                                <td>CHAIR TOURTEAUX 500gr PREMIUM</td>
+                                <td class="price">95.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-qualite">PREMIUM</span><span class="badge badge-decoupe">CHAIR</span></div></td>
+                                <td><span class="code">AUD_chair_tourteaux_500gr_premium</span></td>
+                            </tr>
+
+                            <tr data-product="chair tourteaux  sup 454gr pasteurise (pot)">
+                                <td>CHAIR TOURTEAUX  SUP 454gr PASTEURISE (pot)</td>
+                                <td class="price">86.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-qualite">SUP</span><span class="badge badge-decoupe">CHAIR</span><span class="badge badge-etat">PASTEURISE</span></div></td>
+                                <td><span class="code">AUD_chair_tourteaux_sup_454gr_pasteurise_pot</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="DIVERS POISSONS">
+                <div class="category-header" onclick="toggleCategory('divers_poissons')">
+                    <span>DIVERS POISSONS</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="divers_poissons">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="aretes de poissons blanc">
+                                <td>ARETES DE POISSONS BLANC</td>
+                                <td class="price">2.10 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_aretes_de_poissons_blanc</span></td>
+                            </tr>
+
+                            <tr data-product="aretes saumons">
+                                <td>ARETES SAUMONS</td>
+                                <td class="price">2.10 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_aretes_saumons</span></td>
+                            </tr>
+
+                            <tr data-product="poissons soupe decongeles">
+                                <td>POISSONS SOUPE DECONGELES</td>
+                                <td class="price">5.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-etat">DECONGELE</span></div></td>
+                                <td><span class="code">AUD_poissons_soupe_decongeles</span></td>
+                            </tr>
+
+                            <tr data-product="limande sole t3 (180/350gr)">
+                                <td>LIMANDE SOLE T3 (180/350gr)</td>
+                                <td class="price">11.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (180/350GR)</span></div></td>
+                                <td><span class="code">AUD_limande_sole_t3_180_350gr</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="DORADE">
+                <div class="category-header" onclick="toggleCategory('dorade')">
+                    <span>DORADE</span>
+                    <span class="count">7</span>
+                </div>
+                <div class="category-content" id="dorade">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="dorade grise t1 (0,800kg/+)">
+                                <td>DORADE GRISE T1 (0,800kg/+)</td>
+                                <td class="price">14.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (0,800KG/+)</span></div></td>
+                                <td><span class="code">AUD_dorade_grise_t1_0_800kg</span></td>
+                            </tr>
+
+                            <tr data-product="dorade rose ligne t1(1/2 kg)">
+                                <td>DORADE ROSE LIGNE T1(1/2 kg)</td>
+                                <td class="price">35.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (1/2 KG)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_dorade_rose_ligne_t1_1_2_kg</span></td>
+                            </tr>
+
+                            <tr data-product="dorade rose ligne t1(2/3 kg)">
+                                <td>DORADE ROSE LIGNE T1(2/3 kg)</td>
+                                <td class="price">34.00 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (2/3 KG)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_dorade_rose_ligne_t1_2_3_kg</span></td>
+                            </tr>
+
+                            <tr data-product="dorade rose ligne t2 (800gr/1kg)">
+                                <td>DORADE ROSE LIGNE T2 (800gr/1kg)</td>
+                                <td class="price">36.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (800GR/1KG)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_dorade_rose_ligne_t2_800gr_1kg</span></td>
+                            </tr>
+
+                            <tr data-product="dorade rose ligne t2 (5/800gr)">
+                                <td>DORADE ROSE LIGNE T2 (5/800gr)</td>
+                                <td class="price">33.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (5/800GR)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_dorade_rose_ligne_t2_5_800gr</span></td>
+                            </tr>
+
+                            <tr data-product="dorade royale chalut t11 (2/4kg) et 4/5 kg">
+                                <td>DORADE ROYALE CHALUT T11 (2/4kg) et 4/5 kg</td>
+                                <td class="price">21.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11 (2/4KG)</span><span class="badge badge-methode">CHALUT</span></div></td>
+                                <td><span class="code">AUD_dorade_royale_chalut_t11_2_4kg_et_4_5_kg</span></td>
+                            </tr>
+
+                            <tr data-product="dorade royale chalut t12 (1/2kg)">
+                                <td>DORADE ROYALE CHALUT T12 (1/2kg)</td>
+                                <td class="price">24.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12 (1/2KG)</span><span class="badge badge-methode">CHALUT</span></div></td>
+                                <td><span class="code">AUD_dorade_royale_chalut_t12_1_2kg</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="ENCORNET">
+                <div class="category-header" onclick="toggleCategory('encornet')">
+                    <span>ENCORNET</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="encornet">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="encornet decongele 1/300">
+                                <td>ENCORNET DECONGELE 1/300</td>
+                                <td class="price">12.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/300</span><span class="badge badge-etat">DECONGELE</span></div></td>
+                                <td><span class="code">AUD_encornet_decongele_1_300</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="FILET DE POISSONS">
+                <div class="category-header" onclick="toggleCategory('filet_de_poissons')">
+                    <span>FILET DE POISSONS</span>
+                    <span class="count">10</span>
+                </div>
+                <div class="category-content" id="filet_de_poissons">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="dos cabillaud 400/+* sans peau">
+                                <td>DOS CABILLAUD 400/+* SANS PEAU</td>
+                                <td class="price">24.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">400/+</span><span class="badge badge-decoupe">DOS</span></div></td>
+                                <td><span class="code">AUD_dos_cabillaud_400_sans_peau</span></td>
+                            </tr>
+
+                            <tr data-product="dos julienne*">
+                                <td>DOS JULIENNE*</td>
+                                <td class="price">20.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-decoupe">DOS</span></div></td>
+                                <td><span class="code">AUD_dos_julienne</span></td>
+                            </tr>
+
+                            <tr data-product="dos lieu noir 300gr/+ *">
+                                <td>DOS LIEU NOIR 300gr/+ *</td>
+                                <td class="price">13.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-decoupe">DOS</span></div></td>
+                                <td><span class="code">AUD_dos_lieu_noir_300gr</span></td>
+                            </tr>
+
+                            <tr data-product="filet cabillaud 6/800">
+                                <td>FILET CABILLAUD 6/800</td>
+                                <td class="price">23.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/800</span><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_cabillaud_6_800</span></td>
+                            </tr>
+
+                            <tr data-product="filet grondin perlon 1/200">
+                                <td>FILET GRONDIN PERLON 1/200</td>
+                                <td class="price">16.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/200</span><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_grondin_perlon_1_200</span></td>
+                            </tr>
+
+                            <tr data-product="filet lieu jaune 6/800">
+                                <td>FILET LIEU JAUNE 6/800</td>
+                                <td class="price">30.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/800</span><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_lieu_jaune_6_800</span></td>
+                            </tr>
+
+                            <tr data-product="filet lotte 4/600">
+                                <td>FILET LOTTE 4/600</td>
+                                <td class="price">30.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_lotte_4_600</span></td>
+                            </tr>
+
+                            <tr data-product="filet merlu 4/600 ap ecaille">
+                                <td>FILET MERLU 4/600 AP Ecaille</td>
+                                <td class="price">19.00 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_merlu_4_600_ap_ecaille</span></td>
+                            </tr>
+
+                            <tr data-product="filet merlu 600gr/+ ap ecaille">
+                                <td>FILET MERLU 600gr/+ AP ECAILLE</td>
+                                <td class="price">26.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_merlu_600gr_ap_ecaille</span></td>
+                            </tr>
+
+                            <tr data-product="filet de sebaste 1/300  *">
+                                <td>FILET DE SEBASTE 1/300  *</td>
+                                <td class="price">15.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/300</span><span class="badge badge-decoupe">FILET</span></div></td>
+                                <td><span class="code">AUD_filet_de_sebaste_1_300</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="FILET SAUMON">
+                <div class="category-header" onclick="toggleCategory('filet_saumon')">
+                    <span>FILET SAUMON</span>
+                    <span class="count">30</span>
+                </div>
+                <div class="category-content" id="filet_saumon">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="coeur saumon ecos 3/500">
+                                <td>COEUR SAUMON ECOS 3/500</td>
+                                <td class="price">22.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/500</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">COEUR</span></div></td>
+                                <td><span class="code">AUD_coeur_saumon_ecos_3_500</span></td>
+                            </tr>
+
+                            <tr data-product="darne saumon ecosse aq 180/220">
+                                <td>DARNE SAUMON ECOSSE AQ 180/220</td>
+                                <td class="price">12.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">180/220</span><span class="badge badge-origine">ECOSSE, AQUACULTURE</span><span class="badge badge-decoupe">DARNE</span></div></td>
+                                <td><span class="code">AUD_darne_saumon_ecosse_aq_180_220</span></td>
+                            </tr>
+
+                            <tr data-product="darne saumon norvege aq 180/220">
+                                <td>DARNE SAUMON NORVEGE AQ 180/220</td>
+                                <td class="price">12.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">180/220</span><span class="badge badge-origine">NORVEGE, AQUACULTURE</span><span class="badge badge-decoupe">DARNE</span></div></td>
+                                <td><span class="code">AUD_darne_saumon_norvege_aq_180_220</span></td>
+                            </tr>
+
+                            <tr data-product="dos saumon ecosse 6/900">
+                                <td>DOS SAUMON ECOSSE 6/900</td>
+                                <td class="price">24.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/900</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">DOS</span></div></td>
+                                <td><span class="code">AUD_dos_saumon_ecosse_6_900</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon bio irl 1.5/2+ trim c">
+                                <td>FILET SAUMON BIO IRL 1.5/2+ TRIM C</td>
+                                <td class="price">25.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.5/2</span><span class="badge badge-origine">IRLANDE</span><span class="badge badge-qualite">BIO</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_bio_irl_1_5_2_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon bio irl 1.5/2 trim d">
+                                <td>FILET SAUMON BIO IRL 1.5/2 TRIM D</td>
+                                <td class="price">25.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.5/2</span><span class="badge badge-origine">IRLANDE</span><span class="badge badge-qualite">BIO</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_bio_irl_1_5_2_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon bio irl 1.5/2 trim e">
+                                <td>FILET SAUMON BIO IRL 1.5/2 TRIM E</td>
+                                <td class="price">26.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.5/2</span><span class="badge badge-origine">IRLANDE</span><span class="badge badge-qualite">BIO</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_bio_irl_1_5_2_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon issu du lab.rge 1,2/1,5 trim c">
+                                <td>FILET SAUMON ISSU DU LAB.RGE 1,2/1,5 TRIM C</td>
+                                <td class="price">20.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_issu_du_lab_rge_1_2_1_5_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon issu du lab.rge 1,2/1,5 trim d">
+                                <td>FILET SAUMON ISSU DU LAB.RGE 1,2/1,5 TRIM D</td>
+                                <td class="price">21.00 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_issu_du_lab_rge_1_2_1_5_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon issu du lab.rge 1,2/1,5 trim e">
+                                <td>FILET SAUMON ISSU DU LAB.RGE 1,2/1,5 TRIM E</td>
+                                <td class="price">22.00 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_issu_du_lab_rge_1_2_1_5_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 1,2/1,5 trim c">
+                                <td>FILET SAUMON ECOSSE 1,2/1,5 TRIM C</td>
+                                <td class="price">15.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_1_2_1_5_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 1,2/1,5 trim d">
+                                <td>FILET SAUMON ECOSSE 1,2/1,5 TRIM D</td>
+                                <td class="price">15.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_1_2_1_5_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 1,2/1,5 trim e">
+                                <td>FILET SAUMON ECOSSE 1,2/1,5 TRIM E</td>
+                                <td class="price">16.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_1_2_1_5_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 1,5/2 trim c">
+                                <td>FILET SAUMON ECOSSE 1,5/2 TRIM C</td>
+                                <td class="price">15.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_1_5_2_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 1,5/2 trim d">
+                                <td>FILET SAUMON ECOSSE 1,5/2 TRIM D</td>
+                                <td class="price">15.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_1_5_2_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 1,5/2 trim e">
+                                <td>FILET SAUMON ECOSSE 1,5/2 TRIM E</td>
+                                <td class="price">16.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_1_5_2_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 2kg/+ trim c">
+                                <td>FILET SAUMON ECOSSE 2KG/+ TRIM C</td>
+                                <td class="price">15.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_2kg_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 2kg/+ trim d">
+                                <td>FILET SAUMON ECOSSE 2KG/+ TRIM D</td>
+                                <td class="price">15.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_2kg_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon ecosse 2kg/+ trim e">
+                                <td>FILET SAUMON ECOSSE 2KG/+ TRIM E</td>
+                                <td class="price">16.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_ecosse_2kg_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 1,2/1,5 trim c">
+                                <td>FILET SAUMON NORVEGE 1,2/1,5 TRIM C</td>
+                                <td class="price">14.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_1_2_1_5_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 1,2/1,5 trim d">
+                                <td>FILET SAUMON NORVEGE 1,2/1,5 TRIM D</td>
+                                <td class="price">15.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_1_2_1_5_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 1,2/1,5 trim e">
+                                <td>FILET SAUMON NORVEGE 1,2/1,5 TRIM E</td>
+                                <td class="price">16.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,2/1,5</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_1_2_1_5_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 1,5/2 trim c">
+                                <td>FILET SAUMON NORVEGE 1,5/2 TRIM C</td>
+                                <td class="price">14.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_1_5_2_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 1,5/2 trim d">
+                                <td>FILET SAUMON NORVEGE 1,5/2 TRIM D</td>
+                                <td class="price">15.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_1_5_2_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 1,5/2 trim e">
+                                <td>FILET SAUMON NORVEGE 1,5/2 TRIM E</td>
+                                <td class="price">16.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_1_5_2_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 2kg/+ trim c">
+                                <td>FILET SAUMON NORVEGE 2KG/+ TRIM C</td>
+                                <td class="price">14.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM C</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_2kg_trim_c</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 2kg/+ trim d">
+                                <td>FILET SAUMON NORVEGE 2KG/+ TRIM D</td>
+                                <td class="price">15.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_2kg_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="filet saumon norvege 2kg/+ trim e">
+                                <td>FILET SAUMON NORVEGE 2KG/+ TRIM E</td>
+                                <td class="price">16.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">FILET</span><span class="badge badge-trim">TRIM E</span></div></td>
+                                <td><span class="code">AUD_filet_saumon_norvege_2kg_trim_e</span></td>
+                            </tr>
+
+                            <tr data-product="pave saumon ecos 180/220 trim d">
+                                <td>PAVE SAUMON ECOS 180/220 TRIM D</td>
+                                <td class="price">16.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">180/220</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-decoupe">PAVE</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_pave_saumon_ecos_180_220_trim_d</span></td>
+                            </tr>
+
+                            <tr data-product="pave saumon norvege 180/220 trim d.">
+                                <td>PAVE SAUMON NORVEGE 180/220 TRIM D.</td>
+                                <td class="price">15.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">180/220</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-decoupe">PAVE</span><span class="badge badge-trim">TRIM D</span></div></td>
+                                <td><span class="code">AUD_pave_saumon_norvege_180_220_trim_d</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="GRONDIN">
+                <div class="category-header" onclick="toggleCategory('grondin')">
+                    <span>GRONDIN</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="grondin">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="grondin perlon t11 (1kg/+)">
+                                <td>GRONDIN PERLON T11 (1kg/+)</td>
+                                <td class="price">8.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11 (1KG/+)</span></div></td>
+                                <td><span class="code">AUD_grondin_perlon_t11_1kg</span></td>
+                            </tr>
+
+                            <tr data-product="grondin perlon t12 (500gr/1kg)">
+                                <td>GRONDIN PERLON T12 (500gr/1kg)</td>
+                                <td class="price">6.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12 (500GR/1KG)</span></div></td>
+                                <td><span class="code">AUD_grondin_perlon_t12_500gr_1kg</span></td>
+                            </tr>
+
+                            <tr data-product="grondin perlon t13 (350/500gr)">
+                                <td>GRONDIN PERLON T13 (350/500gr)</td>
+                                <td class="price">4.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T13 (350/500GR)</span></div></td>
+                                <td><span class="code">AUD_grondin_perlon_t13_350_500gr</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="HOMARD">
+                <div class="category-header" onclick="toggleCategory('homard')">
+                    <span>HOMARD</span>
+                    <span class="count">5</span>
+                </div>
+                <div class="category-content" id="homard">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="homard europeen 4/600">
+                                <td>HOMARD EUROPEEN 4/600</td>
+                                <td class="price">33.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span></div></td>
+                                <td><span class="code">AUD_homard_europeen_4_600</span></td>
+                            </tr>
+
+                            <tr data-product="homard europeen 800/1 kg">
+                                <td>HOMARD EUROPEEN 800/1 KG</td>
+                                <td class="price">35.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">800/1</span></div></td>
+                                <td><span class="code">AUD_homard_europeen_800_1_kg</span></td>
+                            </tr>
+
+                            <tr data-product="homard europeen 1/1.2">
+                                <td>HOMARD EUROPEEN 1/1.2</td>
+                                <td class="price">35.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/1.2</span></div></td>
+                                <td><span class="code">AUD_homard_europeen_1_1_2</span></td>
+                            </tr>
+
+                            <tr data-product="homard europeen 1.3/1,7">
+                                <td>HOMARD EUROPEEN 1.3/1,7</td>
+                                <td class="price">34.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.3/1,7</span></div></td>
+                                <td><span class="code">AUD_homard_europeen_1_3_1_7</span></td>
+                            </tr>
+
+                            <tr data-product="homard europeen 1.7/2,2">
+                                <td>HOMARD EUROPEEN 1.7/2,2</td>
+                                <td class="price">33.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.7/2,2</span></div></td>
+                                <td><span class="code">AUD_homard_europeen_1_7_2_2</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="LANGOUSTE">
+                <div class="category-header" onclick="toggleCategory('langouste')">
+                    <span>LANGOUSTE</span>
+                    <span class="count">8</span>
+                </div>
+                <div class="category-content" id="langouste">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="langouste rose 4/600">
+                                <td>LANGOUSTE ROSE 4/600</td>
+                                <td class="price">60.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span></div></td>
+                                <td><span class="code">AUD_langouste_rose_4_600</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rose 6/800">
+                                <td>LANGOUSTE ROSE 6/800</td>
+                                <td class="price">60.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/800</span></div></td>
+                                <td><span class="code">AUD_langouste_rose_6_800</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rose 800/1.2 kg">
+                                <td>LANGOUSTE ROSE 800/1.2 KG</td>
+                                <td class="price">56.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">800/1.2</span></div></td>
+                                <td><span class="code">AUD_langouste_rose_800_1_2_kg</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rouge 800/1kg">
+                                <td>LANGOUSTE ROUGE 800/1KG</td>
+                                <td class="price">67.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">800/1</span></div></td>
+                                <td><span class="code">AUD_langouste_rouge_800_1kg</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rouge 1/1,2kg">
+                                <td>LANGOUSTE ROUGE 1/1,2KG</td>
+                                <td class="price">65.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/1,2</span></div></td>
+                                <td><span class="code">AUD_langouste_rouge_1_1_2kg</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rouge 1.3/1.7 kg">
+                                <td>LANGOUSTE ROUGE 1.3/1.7 KG</td>
+                                <td class="price">58.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.3/1.7</span></div></td>
+                                <td><span class="code">AUD_langouste_rouge_1_3_1_7_kg</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rouge 1.7/2.2 kg">
+                                <td>LANGOUSTE ROUGE 1.7/2.2 KG</td>
+                                <td class="price">58.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.7/2.2</span></div></td>
+                                <td><span class="code">AUD_langouste_rouge_1_7_2_2_kg</span></td>
+                            </tr>
+
+                            <tr data-product="langouste rouge 2,2/+">
+                                <td>LANGOUSTE ROUGE 2,2/+</td>
+                                <td class="price">58.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2,2/+</span></div></td>
+                                <td><span class="code">AUD_langouste_rouge_2_2</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="LIEU JAUNE">
+                <div class="category-header" onclick="toggleCategory('lieu_jaune')">
+                    <span>LIEU JAUNE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="lieu_jaune">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="lieu jaune 2/4 vdk*">
+                                <td>LIEU JAUNE 2/4 VDK*</td>
+                                <td class="price">16.20 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span><span class="badge badge-origine">DANEMARK</span></div></td>
+                                <td><span class="code">AUD_lieu_jaune_2_4_vdk</span></td>
+                            </tr>
+
+                            <tr data-product="lieu jaune ligne t2 (3/5kg) vat">
+                                <td>LIEU JAUNE Ligne T2 (3/5kg) VAT</td>
+                                <td class="price">22.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (3/5KG)</span><span class="badge badge-methode">LIGNE</span><span class="badge badge-origine">ATLANTIQUE</span></div></td>
+                                <td><span class="code">AUD_lieu_jaune_ligne_t2_3_5kg_vat</span></td>
+                            </tr>
+
+                            <tr data-product="lieu jaune ligne t3 (1,5/3kg) vat">
+                                <td>LIEU JAUNE Ligne T3 (1,5/3kg) VAT</td>
+                                <td class="price">18.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (1,5/3KG)</span><span class="badge badge-methode">LIGNE</span><span class="badge badge-origine">ATLANTIQUE</span></div></td>
+                                <td><span class="code">AUD_lieu_jaune_ligne_t3_1_5_3kg_vat</span></td>
+                            </tr>
+
+                            <tr data-product="lieu jaune ligne t4 (0,3/1,5kg) vat">
+                                <td>LIEU JAUNE Ligne T4 (0,3/1,5kg) VAT</td>
+                                <td class="price">18.00 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T4 (0,3/1,5KG)</span><span class="badge badge-methode">LIGNE</span><span class="badge badge-origine">ATLANTIQUE</span></div></td>
+                                <td><span class="code">AUD_lieu_jaune_ligne_t4_0_3_1_5kg_vat</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="LOTTE">
+                <div class="category-header" onclick="toggleCategory('lotte')">
+                    <span>LOTTE</span>
+                    <span class="count">13</span>
+                </div>
+                <div class="category-content" id="lotte">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="foie de lotte">
+                                <td>FOIE DE LOTTE</td>
+                                <td class="price">6.50 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_foie_de_lotte</span></td>
+                            </tr>
+
+                            <tr data-product="joue lotte">
+                                <td>JOUE LOTTE</td>
+                                <td class="price">23.60 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_joue_lotte</span></td>
+                            </tr>
+
+                            <tr data-product=""queue lotte ""b""" 2/6">
+                                <td>"QUEUE LOTTE ""B""" 2/6</td>
+                                <td class="price">16.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/6</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_b_2_6</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 500/1 kg extra peau blanche">
+                                <td>QUEUE LOTTE 500/1 KG EXTRA PEAU BLANCHE</td>
+                                <td class="price">17.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">500/1</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_500_1_kg_extra_peau_blanche</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 500/1 kg extra peau noire">
+                                <td>QUEUE LOTTE 500/1 KG EXTRA PEAU NOIRE</td>
+                                <td class="price">16.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">500/1</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_500_1_kg_extra_peau_noire</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 1/2 kg extra peau blanche">
+                                <td>QUEUE LOTTE 1/2 KG EXTRA PEAU BLANCHE</td>
+                                <td class="price">17.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_1_2_kg_extra_peau_blanche</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 1/2 kg extra peau noire">
+                                <td>QUEUE LOTTE 1/2 KG EXTRA PEAU NOIRE</td>
+                                <td class="price">17.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_1_2_kg_extra_peau_noire</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 2/4 extra peau blanche">
+                                <td>QUEUE LOTTE 2/4 EXTRA PEAU BLANCHE</td>
+                                <td class="price">20.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_2_4_extra_peau_blanche</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 2/4 extra peau noire">
+                                <td>QUEUE LOTTE 2/4 EXTRA PEAU NOIRE</td>
+                                <td class="price">19.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_2_4_extra_peau_noire</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 4/6 extra peau blanche">
+                                <td>QUEUE LOTTE 4/6 EXTRA PEAU BLANCHE</td>
+                                <td class="price">19.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/6</span><span class="badge badge-qualite">EXTRA</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_4_6_extra_peau_blanche</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 1/2 fileyeur">
+                                <td>QUEUE LOTTE 1/2 FILEYEUR</td>
+                                <td class="price">19.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_1_2_fileyeur</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 2/4 fileyeur">
+                                <td>QUEUE LOTTE 2/4 FILEYEUR</td>
+                                <td class="price">21.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_2_4_fileyeur</span></td>
+                            </tr>
+
+                            <tr data-product="queue lotte 4/6 fileyeur">
+                                <td>QUEUE LOTTE 4/6 FILEYEUR</td>
+                                <td class="price">20.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/6</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">AUD_queue_lotte_4_6_fileyeur</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="MERLAN">
+                <div class="category-header" onclick="toggleCategory('merlan')">
+                    <span>MERLAN</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="merlan">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="merlan ligne t1 (500gr/+)">
+                                <td>MERLAN LIGNE T1 (500gr/+)</td>
+                                <td class="price">15.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (500GR/+)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_merlan_ligne_t1_500gr</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="MERLU">
+                <div class="category-header" onclick="toggleCategory('merlu')">
+                    <span>MERLU</span>
+                    <span class="count">11</span>
+                </div>
+                <div class="category-content" id="merlu">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="merlu t11 (4/5kg)">
+                                <td>MERLU T11 (4/5kg)</td>
+                                <td class="price">14.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11 (4/5KG)</span></div></td>
+                                <td><span class="code">AUD_merlu_t11_4_5kg</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t11 (3/4kg)">
+                                <td>MERLU T11 (3/4kg)</td>
+                                <td class="price">14.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11 (3/4KG)</span></div></td>
+                                <td><span class="code">AUD_merlu_t11_3_4kg</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t12 (2,5/3kg)">
+                                <td>MERLU T12 (2,5/3kg)</td>
+                                <td class="price">13.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12 (2,5/3KG)</span></div></td>
+                                <td><span class="code">AUD_merlu_t12_2_5_3kg</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t21 (1,8/2,5 kg)">
+                                <td>MERLU T21 (1,8/2,5 kg)</td>
+                                <td class="price">11.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T21 (1,8/2,5 KG)</span></div></td>
+                                <td><span class="code">AUD_merlu_t21_1_8_2_5_kg</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t22 (1,2/1,8 kg)">
+                                <td>MERLU T22 (1,2/1,8 kg)</td>
+                                <td class="price">10.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T22 (1,2/1,8 KG)</span></div></td>
+                                <td><span class="code">AUD_merlu_t22_1_2_1_8_kg</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t5 (2/400gr)">
+                                <td>MERLU T5 (2/400gr)</td>
+                                <td class="price">4.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T5 (2/400GR)</span></div></td>
+                                <td><span class="code">AUD_merlu_t5_2_400gr</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t11 (4/5kg) pb">
+                                <td>MERLU T11 (4/5kg) PB</td>
+                                <td class="price">14.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11 (4/5KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_merlu_t11_4_5kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t11 (3/4kg) pb">
+                                <td>MERLU T11 (3/4kg) PB</td>
+                                <td class="price">14.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11 (3/4KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_merlu_t11_3_4kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t12 (2,5/3kg) pb">
+                                <td>MERLU T12 (2,5/3kg) PB</td>
+                                <td class="price">14.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12 (2,5/3KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_merlu_t12_2_5_3kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t21 (1,8/2,5 kg) pb">
+                                <td>MERLU T21 (1,8/2,5 kg) PB</td>
+                                <td class="price">12.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T21 (1,8/2,5 KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_merlu_t21_1_8_2_5_kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="merlu t22 (1,2/1,8 kg) pb">
+                                <td>MERLU T22 (1,2/1,8 kg) PB</td>
+                                <td class="price">11.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T22 (1,2/1,8 KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_merlu_t22_1_2_1_8_kg_pb</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="PAGRE">
+                <div class="category-header" onclick="toggleCategory('pagre')">
+                    <span>PAGRE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="pagre">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="pagre t11 ligne (2/3 kg)">
+                                <td>PAGRE T11 LIGNE (2/3 kg)</td>
+                                <td class="price">25.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_pagre_t11_ligne_2_3_kg</span></td>
+                            </tr>
+
+                            <tr data-product="pagre t11 ligne (3 kg/+)">
+                                <td>PAGRE T11 LIGNE (3 kg/+)</td>
+                                <td class="price">25.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T11</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_pagre_t11_ligne_3_kg</span></td>
+                            </tr>
+
+                            <tr data-product="pagre t12 ligne  (1/2 kg)">
+                                <td>PAGRE T12 LIGNE  (1/2 kg)</td>
+                                <td class="price">25.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T12</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_pagre_t12_ligne_1_2_kg</span></td>
+                            </tr>
+
+                            <tr data-product="pagre t2 ligne(500/1kg)">
+                                <td>PAGRE T2 LIGNE(500/1kg)</td>
+                                <td class="price">21.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_pagre_t2_ligne_500_1kg</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="POISSONS BLEUS">
+                <div class="category-header" onclick="toggleCategory('poissons_bleus')">
+                    <span>POISSONS BLEUS</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="poissons_bleus">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="maquereau t2 (200/500gr) ligne">
+                                <td>MAQUEREAU T2 (200/500gr) LIGNE</td>
+                                <td class="price">7.80 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (200/500GR)</span><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">AUD_maquereau_t2_200_500gr_ligne</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="POULPE">
+                <div class="category-header" onclick="toggleCategory('poulpe')">
+                    <span>POULPE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="poulpe">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="poulpe decongele - fr">
+                                <td>POULPE DECONGELE - FR</td>
+                                <td class="price">14.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-etat">DECONGELE</span></div></td>
+                                <td><span class="code">AUD_poulpe_decongele_fr</span></td>
+                            </tr>
+
+                            <tr data-product="poulpe 1/2 kg">
+                                <td>POULPE 1/2 KG</td>
+                                <td class="price">11.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span></div></td>
+                                <td><span class="code">AUD_poulpe_1_2_kg</span></td>
+                            </tr>
+
+                            <tr data-product="poulpe 2/3 kg">
+                                <td>POULPE 2/3 KG</td>
+                                <td class="price">11.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/3</span></div></td>
+                                <td><span class="code">AUD_poulpe_2_3_kg</span></td>
+                            </tr>
+
+                            <tr data-product="poulpe epaté">
+                                <td>POULPE Epaté</td>
+                                <td class="price">8.80 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_poulpe_epate</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="RAIE">
+                <div class="category-header" onclick="toggleCategory('raie')">
+                    <span>RAIE</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="raie">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="aile raie 3/500 pelee">
+                                <td>AILE RAIE 3/500 PELEE</td>
+                                <td class="price">11.20 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/500</span><span class="badge badge-decoupe">AILE</span></div></td>
+                                <td><span class="code">AUD_aile_raie_3_500_pelee</span></td>
+                            </tr>
+
+                            <tr data-product="aile raie 1.5/+ kg np">
+                                <td>AILE RAIE 1.5/+ kg NP</td>
+                                <td class="price">12.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.5/+</span><span class="badge badge-decoupe">AILE</span></div></td>
+                                <td><span class="code">AUD_aile_raie_1_5_kg_np</span></td>
+                            </tr>
+
+                            <tr data-product="aile raie 1.5/+ kg pelee">
+                                <td>AILE RAIE 1.5/+ KG PELEE</td>
+                                <td class="price">13.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1.5/+</span><span class="badge badge-decoupe">AILE</span></div></td>
+                                <td><span class="code">AUD_aile_raie_1_5_kg_pelee</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="ROUGET BARBET">
+                <div class="category-header" onclick="toggleCategory('rouget_barbet')">
+                    <span>ROUGET BARBET</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="rouget_barbet">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="rouget barbet t2/1 (3/500gr) pb">
+                                <td>ROUGET BARBET T2/1 (3/500gr) PB</td>
+                                <td class="price">28.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_rouget_barbet_t2_1_3_500gr_pb</span></td>
+                            </tr>
+
+                            <tr data-product="rouget barbet t2/2 (2/300gr) pb">
+                                <td>ROUGET BARBET T2/2 (2/300gr) PB</td>
+                                <td class="price">20.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_rouget_barbet_t2_2_2_300gr_pb</span></td>
+                            </tr>
+
+                            <tr data-product="rouget barbet t31 (1/200gr) pb">
+                                <td>ROUGET BARBET T31 (1/200gr) PB</td>
+                                <td class="price">14.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T31 (1/200GR)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_rouget_barbet_t31_1_200gr_pb</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="SAINT PIERRE">
+                <div class="category-header" onclick="toggleCategory('saint_pierre')">
+                    <span>SAINT PIERRE</span>
+                    <span class="count">5</span>
+                </div>
+                <div class="category-content" id="saint_pierre">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="saint pierre extra t1 (2kg/+)">
+                                <td>SAINT PIERRE EXTRA T1 (2kg/+)</td>
+                                <td class="price">33.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (2KG/+)</span><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">AUD_saint_pierre_extra_t1_2kg</span></td>
+                            </tr>
+
+                            <tr data-product="saint pierre extra t2 (1/1.5kg)">
+                                <td>SAINT PIERRE EXTRA T2 (1/1.5kg)</td>
+                                <td class="price">20.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (1/1.5KG)</span><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">AUD_saint_pierre_extra_t2_1_1_5kg</span></td>
+                            </tr>
+
+                            <tr data-product="saint pierre extra t2 (1.5/2kg)">
+                                <td>SAINT PIERRE EXTRA T2 (1.5/2kg)</td>
+                                <td class="price">21.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (1.5/2KG)</span><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">AUD_saint_pierre_extra_t2_1_5_2kg</span></td>
+                            </tr>
+
+                            <tr data-product="saint pierre extra t3 (5/700gr)">
+                                <td>SAINT PIERRE EXTRA T3 (5/700gr)</td>
+                                <td class="price">16.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (5/700GR)</span><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">AUD_saint_pierre_extra_t3_5_700gr</span></td>
+                            </tr>
+
+                            <tr data-product="saint pierre extra t3 (700gr/1kg)">
+                                <td>SAINT PIERRE EXTRA T3 (700gr/1kg)</td>
+                                <td class="price">18.30 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (700GR/1KG)</span><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">AUD_saint_pierre_extra_t3_700gr_1kg</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="SAUMONS">
+                <div class="category-header" onclick="toggleCategory('saumons')">
+                    <span>SAUMONS</span>
+                    <span class="count">10</span>
+                </div>
+                <div class="category-content" id="saumons">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="saumon elev irlande bio 3/4 vide">
+                                <td>SAUMON ELEV IRLANDE BIO 3/4 VIDE</td>
+                                <td class="price">17.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/4</span><span class="badge badge-qualite">BIO</span></div></td>
+                                <td><span class="code">AUD_saumon_elev_irlande_bio_3_4_vide</span></td>
+                            </tr>
+
+                            <tr data-product="saumon elev irlande bio 4/5 vide">
+                                <td>SAUMON ELEV IRLANDE BIO 4/5 VIDE</td>
+                                <td class="price">17.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/5</span><span class="badge badge-qualite">BIO</span></div></td>
+                                <td><span class="code">AUD_saumon_elev_irlande_bio_4_5_vide</span></td>
+                            </tr>
+
+                            <tr data-product="saumon 3/4 kg ecosse sup">
+                                <td>SAUMON 3/4 KG ECOSSE SUP</td>
+                                <td class="price">9.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/4</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-qualite">SUP</span></div></td>
+                                <td><span class="code">AUD_saumon_3_4_kg_ecosse_sup</span></td>
+                            </tr>
+
+                            <tr data-product="saumon 4/5 kg ecosse sup">
+                                <td>SAUMON 4/5 KG ECOSSE SUP</td>
+                                <td class="price">9.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/5</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-qualite">SUP</span></div></td>
+                                <td><span class="code">AUD_saumon_4_5_kg_ecosse_sup</span></td>
+                            </tr>
+
+                            <tr data-product="saumon 5/6 kg ecosse sup">
+                                <td>SAUMON 5/6 KG ECOSSE SUP</td>
+                                <td class="price">9.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">5/6</span><span class="badge badge-origine">ECOSSE</span><span class="badge badge-qualite">SUP</span></div></td>
+                                <td><span class="code">AUD_saumon_5_6_kg_ecosse_sup</span></td>
+                            </tr>
+
+                            <tr data-product="saumon label rge 3/4 kg ec">
+                                <td>SAUMON LABEL RGE 3/4 KG EC</td>
+                                <td class="price">12.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/4</span></div></td>
+                                <td><span class="code">AUD_saumon_label_rge_3_4_kg_ec</span></td>
+                            </tr>
+
+                            <tr data-product="saumon label rge 4/5 kg ec">
+                                <td>SAUMON LABEL RGE 4/5 KG EC</td>
+                                <td class="price">12.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/5</span></div></td>
+                                <td><span class="code">AUD_saumon_label_rge_4_5_kg_ec</span></td>
+                            </tr>
+
+                            <tr data-product="saumon norvege 3/4 kg sup">
+                                <td>SAUMON NORVEGE 3/4 KG SUP</td>
+                                <td class="price">9.30 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/4</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-qualite">SUP</span></div></td>
+                                <td><span class="code">AUD_saumon_norvege_3_4_kg_sup</span></td>
+                            </tr>
+
+                            <tr data-product="saumon norvege 4/5 kg sup">
+                                <td>SAUMON NORVEGE 4/5 KG SUP</td>
+                                <td class="price">9.30 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/5</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-qualite">SUP</span></div></td>
+                                <td><span class="code">AUD_saumon_norvege_4_5_kg_sup</span></td>
+                            </tr>
+
+                            <tr data-product="saumon norvege 5/6 kg sup">
+                                <td>SAUMON NORVEGE 5/6 KG SUP</td>
+                                <td class="price">9.30 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">5/6</span><span class="badge badge-origine">NORVEGE</span><span class="badge badge-qualite">SUP</span></div></td>
+                                <td><span class="code">AUD_saumon_norvege_5_6_kg_sup</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="SOLE">
+                <div class="category-header" onclick="toggleCategory('sole')">
+                    <span>SOLE</span>
+                    <span class="count">9</span>
+                </div>
+                <div class="category-content" id="sole">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="sole t1 (500/600gr/)">
+                                <td>SOLE T1 (500/600gr/)</td>
+                                <td class="price">34.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (500/600GR/)</span></div></td>
+                                <td><span class="code">AUD_sole_t1_500_600gr</span></td>
+                            </tr>
+
+                            <tr data-product="sole t1 (600/800gr)">
+                                <td>SOLE T1 (600/800gr)</td>
+                                <td class="price">35.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (600/800GR)</span></div></td>
+                                <td><span class="code">AUD_sole_t1_600_800gr</span></td>
+                            </tr>
+
+                            <tr data-product="sole t1 (500/600gr) pb">
+                                <td>SOLE T1 (500/600gr) PB</td>
+                                <td class="price">37.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (500/600GR)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_sole_t1_500_600gr_pb</span></td>
+                            </tr>
+
+                            <tr data-product="sole t1 (600/800gr) pb">
+                                <td>SOLE T1 (600/800gr) PB</td>
+                                <td class="price">40.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (600/800GR)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_sole_t1_600_800gr_pb</span></td>
+                            </tr>
+
+                            <tr data-product="sole t1 (800gr/1kg) pb">
+                                <td>SOLE T1 (800gr/1kg) PB</td>
+                                <td class="price">40.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (800GR/1KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_sole_t1_800gr_1kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="sole t1 (1kg/+) pb">
+                                <td>SOLE T1 (1kg/+) PB</td>
+                                <td class="price">40.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (1KG/+)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_sole_t1_1kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="sole t2 (3/400gr) décongelée pelée 1 face">
+                                <td>SOLE T2 (3/400gr) décongelée pelée 1 face</td>
+                                <td class="price">26.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (3/400GR)</span></div></td>
+                                <td><span class="code">AUD_sole_t2_3_400gr_decongelee_pelee_1_face</span></td>
+                            </tr>
+
+                            <tr data-product="sole t2 (300/400gr) pb">
+                                <td>SOLE T2 (300/400gr) PB</td>
+                                <td class="price">30.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (300/400GR)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_sole_t2_300_400gr_pb</span></td>
+                            </tr>
+
+                            <tr data-product="sole t2 (400/500gr) pb">
+                                <td>SOLE T2 (400/500gr) PB</td>
+                                <td class="price">35.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (400/500GR)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_sole_t2_400_500gr_pb</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="TACAUD">
+                <div class="category-header" onclick="toggleCategory('tacaud')">
+                    <span>TACAUD</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="tacaud">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="tacaud t1 (400gr/+)">
+                                <td>TACAUD T1 (400gr/+)</td>
+                                <td class="price">7.90 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T1 (400GR/+)</span></div></td>
+                                <td><span class="code">AUD_tacaud_t1_400gr</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="THON">
+                <div class="category-header" onclick="toggleCategory('thon')">
+                    <span>THON</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="thon">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="thonine commune">
+                                <td>THONINE COMMUNE</td>
+                                <td class="price">6.50 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_thonine_commune</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="TOURTEAUX - ARAIGNEES">
+                <div class="category-header" onclick="toggleCategory('tourteaux___araignees')">
+                    <span>TOURTEAUX - ARAIGNEES</span>
+                    <span class="count">6</span>
+                </div>
+                <div class="category-content" id="tourteaux___araignees">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="etrille crue decongelee">
+                                <td>ETRILLE CRUE DECONGELEE</td>
+                                <td class="price">11.00 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-etat">DECONGELE</span></div></td>
+                                <td><span class="code">AUD_etrille_crue_decongelee</span></td>
+                            </tr>
+
+                            <tr data-product="tourteaux 4/600">
+                                <td>TOURTEAUX 4/600</td>
+                                <td class="price">8.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span></div></td>
+                                <td><span class="code">AUD_tourteaux_4_600</span></td>
+                            </tr>
+
+                            <tr data-product="tourteaux 4/600 pièce">
+                                <td>TOURTEAUX 4/600 pièce</td>
+                                <td class="price">9.40 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span></div></td>
+                                <td><span class="code">AUD_tourteaux_4_600_piece</span></td>
+                            </tr>
+
+                            <tr data-product="tourteaux 6/800">
+                                <td>TOURTEAUX 6/800</td>
+                                <td class="price">8.70 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/800</span></div></td>
+                                <td><span class="code">AUD_tourteaux_6_800</span></td>
+                            </tr>
+
+                            <tr data-product="tourteaux 6/800 pièce">
+                                <td>TOURTEAUX 6/800 pièce</td>
+                                <td class="price">9.70 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/800</span></div></td>
+                                <td><span class="code">AUD_tourteaux_6_800_piece</span></td>
+                            </tr>
+
+                            <tr data-product="tourteaux epates">
+                                <td>TOURTEAUX EPATES</td>
+                                <td class="price">7.10 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_tourteaux_epates</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="TURBOT">
+                <div class="category-header" onclick="toggleCategory('turbot')">
+                    <span>TURBOT</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="turbot">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="turbot t2 (2/3 kg) pb">
+                                <td>TURBOT T2 (2/3 kg) PB</td>
+                                <td class="price">36.60 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T2 (2/3 KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_turbot_t2_2_3_kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="turbot t3 (1/2 kg) pb">
+                                <td>TURBOT T3 (1/2 kg) PB</td>
+                                <td class="price">33.10 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T3 (1/2 KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_turbot_t3_1_2_kg_pb</span></td>
+                            </tr>
+
+                            <tr data-product="turbot t4 (500gr/1kg) pb">
+                                <td>TURBOT T4 (500gr/1kg) PB</td>
+                                <td class="price">21.50 EUR</td>
+                                <td><div class="attributes"><span class="badge badge-calibre">T4 (500GR/1KG)</span><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">AUD_turbot_t4_500gr_1kg_pb</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="VIEILLE">
+                <div class="category-header" onclick="toggleCategory('vieille')">
+                    <span>VIEILLE</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="vieille">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="vieille">
+                                <td>VIEILLE</td>
+                                <td class="price">7.10 EUR</td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">AUD_vieille</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            Parser Audierne - LaCriee ELT Pipeline
+        </footer>
+    </div>
+
+    <script>
+        function toggleCategory(id) {
+            const content = document.getElementById(id);
+            content.classList.toggle('open');
+        }
+
+        function expandAll() {
+            document.querySelectorAll('.category-content').forEach(el => el.classList.add('open'));
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.category-content').forEach(el => el.classList.remove('open'));
+        }
+
+        function filterProducts() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const sections = document.querySelectorAll('.category-section');
+
+            sections.forEach(section => {
+                const rows = section.querySelectorAll('tbody tr');
+                let hasVisible = false;
+
+                rows.forEach(row => {
+                    const productName = row.getAttribute('data-product');
+                    if (productName.includes(query)) {
+                        row.classList.remove('hidden');
+                        hasVisible = true;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                // Afficher/masquer la section selon si elle a des résultats
+                if (hasVisible || query === '') {
+                    section.classList.remove('hidden');
+                    if (query !== '') {
+                        section.querySelector('.category-content').classList.add('open');
+                    }
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+        }
+
+        // Ouvrir la première catégorie par défaut
+        document.querySelector('.category-content')?.classList.add('open');
+    </script>
+</body>
+</html>

@@ -343,38 +343,258 @@ def execute_staging_transform(job_id: str) -> Dict[str, int]:
         raise
 
 
-def get_job_status(job_id: str) -> Optional[Dict[str, Any]]:
+
+def ensure_all_prices_table_exists() -> None:
     """
-    Récupère le statut d'un job depuis ImportJobs.
+    Vérifie l'existence de la table AllPrices et la crée si nécessaire.
+    Basé sur le schéma défini dans harmonisation_attributs.md.
+    """
+    client = get_bigquery_client()
+    table_id = f"{client.project}.{DATASET_ID}.AllPrices"
+
+    schema = [
+        # Identifiants
+        bigquery.SchemaField("key_date", "STRING", mode="REQUIRED", description="Clé unique: Code_Provider + Date"),
+        bigquery.SchemaField("date", "DATE", mode="REQUIRED", description="Date du cours"),
+        bigquery.SchemaField("vendor", "STRING", mode="REQUIRED", description="Nom du fournisseur"),
+        bigquery.SchemaField("code_provider", "STRING", mode="NULLABLE", description="Code produit fournisseur"),
+        bigquery.SchemaField("product_name", "STRING", mode="NULLABLE", description="Nom brut du produit"),
+        bigquery.SchemaField("prix", "FLOAT64", mode="NULLABLE", description="Prix unitaire"),
+
+        # Attributs harmonisés
+        bigquery.SchemaField("categorie", "STRING", mode="NULLABLE", description="Espece/type harmonisé"),
+        bigquery.SchemaField("methode_peche", "STRING", mode="NULLABLE", description="Méthode de pêche harmonisée"),
+        bigquery.SchemaField("qualite", "STRING", mode="NULLABLE", description="Qualité harmonisée"),
+        bigquery.SchemaField("decoupe", "STRING", mode="NULLABLE", description="Découpe harmonisée"),
+        bigquery.SchemaField("etat", "STRING", mode="NULLABLE", description="État harmonisé"),
+        bigquery.SchemaField("origine", "STRING", mode="NULLABLE", description="Origine harmonisée"),
+        bigquery.SchemaField("calibre", "STRING", mode="NULLABLE", description="Calibre harmonisé"),
+
+        # Nouveaux champs
+        bigquery.SchemaField("type_production", "STRING", mode="NULLABLE", description="SAUVAGE, ELEVAGE"),
+        bigquery.SchemaField("technique_abattage", "STRING", mode="NULLABLE", description="IKEJIME"),
+        bigquery.SchemaField("couleur", "STRING", mode="NULLABLE", description="ROUGE, BLANCHE, NOIRE (pour crustacés)"),
+
+        # Attributs spécifiques
+        bigquery.SchemaField("conservation", "STRING", mode="NULLABLE", description="FRAIS, CONGELE, SURGELE"),
+        bigquery.SchemaField("trim", "STRING", mode="NULLABLE", description="TRIM_B, TRIM_C, etc."),
+        bigquery.SchemaField("label", "STRING", mode="NULLABLE", description="MSC, BIO, LABEL ROUGE..."),
+        bigquery.SchemaField("variante", "STRING", mode="NULLABLE", description="Variante produit (Demarne)"),
+
+        # Métadonnées
+        bigquery.SchemaField("infos_brutes", "STRING", mode="NULLABLE", description="Concaténation des attributs extraits"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", mode="NULLABLE", description="Date d'insertion"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", mode="NULLABLE", description="Date de mise à jour"),
+        bigquery.SchemaField("last_job_id", "STRING", mode="NULLABLE", description="ID du dernier job ayant modifié la ligne"),
+    ]
+
+    try:
+        client.get_table(table_id)
+        logger.info(f"Table {table_id} existe déjà.")
+    except Exception:
+        logger.info(f"Création de la table {table_id}...")
+        table = bigquery.Table(table_id, schema=schema)
+        # Partitionnement par date pour optimiser les coûts et perfs
+        table.time_partitioning = bigquery.TimePartitioning(
+            type_=bigquery.TimePartitioningType.DAY,
+            field="date"
+        )
+        table = client.create_table(table)
+        logger.info(f"Table {table_id} créée avec succès.")
+
+
+def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str, Any]]) -> Dict[str, int]:
+    """
+    Charge les données harmonisées dans AllPrices avec déduplication (MERGE).
     
     Args:
         job_id: UUID du job
-    
+        vendor: Fournisseur
+        harmonized_data: Liste de dictionnaires (produits harmonisés)
+        
     Returns:
-        Dictionnaire avec les informations du job ou None si non trouvé
+        Stats de chargement {rows_inserted, rows_updated, rows_total}
     """
+    if not harmonized_data:
+        logger.warning(f"Job {job_id}: Aucune donnée à charger dans AllPrices")
+        return {"rows_inserted": 0, "rows_updated": 0, "rows_total": 0}
+
     client = get_bigquery_client()
-    table_id = f"{client.project}.{DATASET_ID}.ImportJobs"
+    table_id = f"{client.project}.{DATASET_ID}.AllPrices"
+    staging_table_id = f"{client.project}.{DATASET_ID}.AllPrices_Staging_{job_id.replace('-', '_')}"
     
-    query = f"""
-    SELECT *
-    FROM `{table_id}`
-    WHERE job_id = '{job_id}'
-    LIMIT 1
-    """
+    # S'assurer que la table cible existe
+    ensure_all_prices_table_exists()
+
+    # 1. Préparer les données pour BQ
+    rows_to_insert = []
+    now_iso = datetime.now().isoformat()
+
+    # Déduplication basée sur key_date + vendor (évite les doublons dans le staging)
+    seen_keys = {}
+
+    for item in harmonized_data:
+        # Récupérer la clé unique du parseur (keyDate ou key_date)
+        # Cette clé est définie en amont par chaque parseur
+        key_date = item.get("keyDate") or item.get("key_date")
+
+        if not key_date:
+            logger.warning(f"Job {job_id}: Item sans keyDate, ignoré: {item.get('product_name')}")
+            continue
+
+        date_str = item.get("date") or item.get("Date")
+
+        # Clé de déduplication
+        dedup_key = f"{key_date}|{vendor}"
+
+        # Si on a déjà vu cette clé, on la skip (garde la première occurrence)
+        if dedup_key in seen_keys:
+            logger.info(f"Job {job_id}: DOUBLON DÉTECTÉ - keyDate={key_date}, vendor={vendor}, product={item.get('product_name')}")
+            continue
+        seen_keys[dedup_key] = True
+
+        row = {
+            "key_date": key_date,
+            "date": date_str,
+            "vendor": vendor,
+            "code_provider": str(item.get("code_provider", "")),
+            "product_name": str(item.get("product_name", "")),
+            "prix": item.get("prix"),
+
+            # Attributs harmonisés
+            "categorie": item.get("categorie"),
+            "methode_peche": item.get("methode_peche"),
+            "qualite": item.get("qualite"),
+            "decoupe": item.get("decoupe"),
+            "etat": item.get("etat"),
+            "origine": item.get("origine"),
+            "calibre": item.get("calibre"),
+
+            # Nouveaux champs
+            "type_production": item.get("type_production"),
+            "technique_abattage": item.get("technique_abattage"),
+            "couleur": item.get("couleur"),
+
+            # Spécifiques
+            "conservation": item.get("conservation"),
+            "trim": item.get("trim"),
+            "label": item.get("label"),
+            "variante": item.get("variante"),
+
+            # Méta
+            "infos_brutes": str(item.get("infos_brutes", "")),
+            "created_at": now_iso,
+            "updated_at": now_iso,
+            "last_job_id": job_id
+        }
+        rows_to_insert.append(row)
+
+    # 2. Charger dans une table temporaire (Staging) avec schéma explicite
+    # On évite autodetect car BigQuery infère "123" comme INT64 au lieu de STRING
+    staging_schema = [
+        bigquery.SchemaField("key_date", "STRING"),
+        bigquery.SchemaField("date", "DATE"),  # DATE to match AllPrices
+        bigquery.SchemaField("vendor", "STRING"),
+        bigquery.SchemaField("code_provider", "STRING"),
+        bigquery.SchemaField("product_name", "STRING"),
+        bigquery.SchemaField("prix", "FLOAT64"),
+        bigquery.SchemaField("categorie", "STRING"),
+        bigquery.SchemaField("methode_peche", "STRING"),
+        bigquery.SchemaField("qualite", "STRING"),
+        bigquery.SchemaField("decoupe", "STRING"),
+        bigquery.SchemaField("etat", "STRING"),
+        bigquery.SchemaField("origine", "STRING"),
+        bigquery.SchemaField("calibre", "STRING"),
+        bigquery.SchemaField("type_production", "STRING"),
+        bigquery.SchemaField("technique_abattage", "STRING"),
+        bigquery.SchemaField("couleur", "STRING"),
+        bigquery.SchemaField("conservation", "STRING"),
+        bigquery.SchemaField("trim", "STRING"),
+        bigquery.SchemaField("label", "STRING"),
+        bigquery.SchemaField("variante", "STRING"),
+        bigquery.SchemaField("infos_brutes", "STRING"),
+        bigquery.SchemaField("created_at", "STRING"),
+        bigquery.SchemaField("updated_at", "STRING"),
+        bigquery.SchemaField("last_job_id", "STRING"),
+    ]
+    
+    job_config = bigquery.LoadJobConfig(
+        schema=staging_schema,
+        write_disposition="WRITE_TRUNCATE"
+    )
     
     try:
-        query_job = client.query(query)
-        results = query_job.result()
+        load_job = client.load_table_from_json(rows_to_insert, staging_table_id, job_config=job_config)
+        load_job.result() # Attendre la fin
+        logger.info(f"Job {job_id}: Données chargées dans table temporaire {staging_table_id}")
         
-        for row in results:
-            # Convertir la Row en dictionnaire
-            job_dict = dict(row)
-            return job_dict
+        # 3. Exécuter le MERGE pour déduplication
+        merge_query = f"""
+        MERGE `{table_id}` T
+        USING `{staging_table_id}` S
+        ON T.key_date = S.key_date AND T.vendor = S.vendor
+        WHEN MATCHED THEN
+          UPDATE SET 
+            date = S.date,
+            vendor = S.vendor,
+            code_provider = S.code_provider,
+            product_name = S.product_name,
+            prix = S.prix,
+            categorie = S.categorie,
+            methode_peche = S.methode_peche,
+            qualite = S.qualite,
+            decoupe = S.decoupe,
+            etat = S.etat,
+            origine = S.origine,
+            calibre = S.calibre,
+            type_production = S.type_production,
+            technique_abattage = S.technique_abattage,
+            couleur = S.couleur,
+            conservation = S.conservation,
+            trim = S.trim,
+            label = S.label,
+            variante = S.variante,
+            infos_brutes = S.infos_brutes,
+            updated_at = CURRENT_TIMESTAMP(),
+            last_job_id = S.last_job_id
+        WHEN NOT MATCHED THEN
+          INSERT (
+            key_date, date, vendor, code_provider, product_name, prix,
+            categorie, methode_peche, qualite, decoupe, etat, origine, calibre,
+            type_production, technique_abattage, couleur,
+            conservation, trim, label, variante,
+            infos_brutes, created_at, updated_at, last_job_id
+          )
+          VALUES (
+            key_date, date, vendor, code_provider, product_name, prix,
+            categorie, methode_peche, qualite, decoupe, etat, origine, calibre,
+            type_production, technique_abattage, couleur,
+            conservation, trim, label, variante,
+            infos_brutes, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), last_job_id
+          )
+        """
         
-        return None
+        query_job = client.query(merge_query)
+        results = query_job.result() # Attendre
+        
+        # Récupérer stats (approximatif avec BQ MERGE via num_dml_affected_rows)
+        # Note: num_dml_affected_rows donne total inserted + updated
+        total_affected = query_job.num_dml_affected_rows or len(rows_to_insert)
+        
+        logger.info(f"Job {job_id}: MERGE terminé. ~{total_affected} lignes affectées.")
+        
+        # 4. Supprimer table temporaire
+        client.delete_table(staging_table_id, not_found_ok=True)
+        
+        return {
+            "rows_inserted": total_affected, # Simplification car MERGE mixe les deux
+            "rows_updated": 0, 
+            "rows_total": len(rows_to_insert)
+        }
         
     except Exception as e:
-        logger.error(f"Erreur récupération job {job_id}: {e}")
-        return None
+        logger.error(f"Erreur lors du chargement AllPrices job {job_id}: {e}")
+        # Tenter de nettoyer
+        client.delete_table(staging_table_id, not_found_ok=True)
+        raise
 

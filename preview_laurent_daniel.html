@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview Parser Laurent Daniel - 2025-05-13</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        header .subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .stat-card .label {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .enrichment-stats {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .enrichment-stats h3 {
+            margin-bottom: 15px;
+            color: #2e7d32;
+        }
+        .enrichment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        .enrichment-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .enrichment-item .count {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .enrichment-item .attr-name {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .category-section {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .category-header {
+            background: #e8f5e9;
+            padding: 15px 20px;
+            font-weight: bold;
+            color: #2e7d32;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .category-header:hover {
+            background: #c8e6c9;
+        }
+        .category-header .count {
+            background: #2e7d32;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+        .category-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .category-content.open {
+            max-height: 2000px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .price {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .price-na {
+            color: #999;
+            font-style: italic;
+        }
+        .code {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #666;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .search-box {
+            margin-bottom: 20px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus {
+            border-color: #2e7d32;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #2e7d32;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #43a047;
+        }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        .hidden {
+            display: none !important;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        /* Badges pour les attributs */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin: 1px 2px;
+            white-space: nowrap;
+        }
+        .badge-calibre {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .badge-methode {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .badge-origine {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .badge-qualite {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .badge-decoupe {
+            background: #eceff1;
+            color: #546e7a;
+        }
+        .badge-etat {
+            background: #fffde7;
+            color: #f9a825;
+        }
+        .attributes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Laurent Daniel - Parser Preview</h1>
+            <div class="subtitle">Date du document: 2025-05-13 | Genere le 15/01/2026 09:27</div>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value">96</div>
+                <div class="label">Produits</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">13</div>
+                <div class="label">Categories</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">22.44 EUR</div>
+                <div class="label">Prix moyen</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">5.80 - 60.60</div>
+                <div class="label">Min / Max</div>
+            </div>
+        </div>
+
+        <div class="enrichment-stats">
+            <h3>Attributs extraits</h3>
+            <div class="enrichment-grid">
+                <div class="enrichment-item">
+                    <div class="count">34</div>
+                    <div class="attr-name">Methode Peche</div>
+                </div>
+                <div class="enrichment-item">
+                    <div class="count">7</div>
+                    <div class="attr-name">Qualite</div>
+                </div>
+                <div class="enrichment-item">
+                    <div class="count">41</div>
+                    <div class="attr-name">Calibre</div>
+                </div>
+                <div class="enrichment-item">
+                    <div class="count">2</div>
+                    <div class="attr-name">Decoupe</div>
+                </div>
+                <div class="enrichment-item">
+                    <div class="count">4</div>
+                    <div class="attr-name">Etat</div>
+                </div>
+                <div class="enrichment-item">
+                    <div class="count">2</div>
+                    <div class="attr-name">Origine</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Rechercher un produit..." onkeyup="filterProducts()">
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="expandAll()">Tout ouvrir</button>
+            <button class="btn btn-secondary" onclick="collapseAll()">Tout fermer</button>
+        </div>
+
+        <div id="categories">
+
+            <div class="category-section" data-category="AIGUILLATS">
+                <div class="category-header" onclick="toggleCategory('aiguillats')">
+                    <span>AIGUILLATS</span>
+                    <span class="count">2</span>
+                </div>
+                <div class="category-content" id="aiguillats">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="pb ha pelee">
+                                <td>PB HA Pelee</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span><span class="badge badge-etat">PELEE</span></div></td>
+                                <td><span class="code">LD_PBHAPelee_</span></td>
+                            </tr>
+
+                            <tr data-product="ligne roussette">
+                                <td>LIGNE Roussette</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">LD_LIGNERoussette_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="BARBUE">
+                <div class="category-header" onclick="toggleCategory('barbue')">
+                    <span>BARBUE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="barbue">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="barbue 3/4">
+                                <td>Barbue 3/4</td>
+                                <td><span class="price">36.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/4</span></div></td>
+                                <td><span class="code">LD_Barbue3/4_</span></td>
+                            </tr>
+
+                            <tr data-product="barbue 2/3">
+                                <td>Barbue 2/3</td>
+                                <td><span class="price">25.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/3</span></div></td>
+                                <td><span class="code">LD_Barbue2/3_</span></td>
+                            </tr>
+
+                            <tr data-product="barbue 1/2">
+                                <td>Barbue 1/2</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span></div></td>
+                                <td><span class="code">LD_Barbue1/2_</span></td>
+                            </tr>
+
+                            <tr data-product="barbue 5/1">
+                                <td>Barbue 5/1</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">5/1</span></div></td>
+                                <td><span class="code">LD_Barbue5/1_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="GRONDIN / TOMBE">
+                <div class="category-header" onclick="toggleCategory('grondin_/_tombe')">
+                    <span>GRONDIN / TOMBE</span>
+                    <span class="count">2</span>
+                </div>
+                <div class="category-content" id="grondin_/_tombe">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="grondin rouge">
+                                <td>GRONDIN ROUGE</td>
+                                <td><span class="price">9.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-etat">ROUGE</span></div></td>
+                                <td><span class="code">LD_GRONDINROUGE_</span></td>
+                            </tr>
+
+                            <tr data-product="tombe 3/+">
+                                <td>Tombe 3/+</td>
+                                <td><span class="price">8.00 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/+</span></div></td>
+                                <td><span class="code">LD_Tombe3/+_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="LIMANDE">
+                <div class="category-header" onclick="toggleCategory('limande')">
+                    <span>LIMANDE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="limande">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="limande 7/+">
+                                <td>Limande 7/+</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">7/+</span></div></td>
+                                <td><span class="code">LD_Limande7/+_</span></td>
+                            </tr>
+
+                            <tr data-product="limande 5/700">
+                                <td>Limande 5/700</td>
+                                <td><span class="price">11.90 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">5/700</span></div></td>
+                                <td><span class="code">LD_Limande5/700_</span></td>
+                            </tr>
+
+                            <tr data-product="limande 3/500">
+                                <td>Limande 3/500</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/500</span></div></td>
+                                <td><span class="code">LD_Limande3/500_</span></td>
+                            </tr>
+
+                            <tr data-product="limande 2/300">
+                                <td>Limande 2/300</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/300</span></div></td>
+                                <td><span class="code">LD_Limande2/300_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="LIMANDE SOLE">
+                <div class="category-header" onclick="toggleCategory('limande_sole')">
+                    <span>LIMANDE SOLE</span>
+                    <span class="count">3</span>
+                </div>
+                <div class="category-content" id="limande_sole">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="limande sole 600/+">
+                                <td>Limande Sole 600/+</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">600/+</span></div></td>
+                                <td><span class="code">LD_LimandeSole600/+_</span></td>
+                            </tr>
+
+                            <tr data-product="limande sole 4/600">
+                                <td>Limande Sole 4/600</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/600</span></div></td>
+                                <td><span class="code">LD_LimandeSole4/600_</span></td>
+                            </tr>
+
+                            <tr data-product="limande sole pac">
+                                <td>Limande Sole PAC</td>
+                                <td><span class="price">13.80 EUR</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_LimandeSolePAC_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="LOTTE">
+                <div class="category-header" onclick="toggleCategory('lotte')">
+                    <span>LOTTE</span>
+                    <span class="count">13</span>
+                </div>
+                <div class="category-content" id="lotte">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="lotte 4/+">
+                                <td>Lotte 4/+</td>
+                                <td><span class="price">21.30 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/+</span></div></td>
+                                <td><span class="code">LD_Lotte4/+_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 2/4">
+                                <td>Lotte 2/4</td>
+                                <td><span class="price">21.30 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span></div></td>
+                                <td><span class="code">LD_Lotte2/4_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 1/2">
+                                <td>Lotte 1/2</td>
+                                <td><span class="price">20.20 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span></div></td>
+                                <td><span class="code">LD_Lotte1/2_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 5/1">
+                                <td>Lotte 5/1</td>
+                                <td><span class="price">15.20 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">5/1</span></div></td>
+                                <td><span class="code">LD_Lotte5/1_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 3/500">
+                                <td>Lotte 3/500</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/500</span></div></td>
+                                <td><span class="code">LD_Lotte3/500_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 3/500 noire">
+                                <td>Lotte 3/500 noire</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/500</span><span class="badge badge-etat">NOIRE</span></div></td>
+                                <td><span class="code">LD_Lotte3/500noire_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte +4 roscoff">
+                                <td>Lotte +4 ROSCOFF</td>
+                                <td><span class="price">22.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-origine">ROSCOFF</span></div></td>
+                                <td><span class="code">LD_Lotte+4ROSCOFF_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 2/4 roscoff">
+                                <td>Lotte 2/4 ROSCOFF</td>
+                                <td><span class="price">22.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span><span class="badge badge-origine">ROSCOFF</span></div></td>
+                                <td><span class="code">LD_Lotte2/4ROSCOFF_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 1/2roscoff">
+                                <td>Lotte 1/2ROSCOFF</td>
+                                <td><span class="price">19.60 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span></div></td>
+                                <td><span class="code">LD_Lotte1/2ROSCOFF_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 2/4 sans flanc">
+                                <td>Lotte 2/4 SANS FLANC</td>
+                                <td><span class="price">23.50 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/4</span></div></td>
+                                <td><span class="code">LD_Lotte2/4SANSFLANC_</span></td>
+                            </tr>
+
+                            <tr data-product="lotte 1/2 sans flanc">
+                                <td>Lotte 1/2 SANS FLANC</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span></div></td>
+                                <td><span class="code">LD_Lotte1/2SANSFLANC_</span></td>
+                            </tr>
+
+                            <tr data-product="foie de lotte">
+                                <td>Foie de lotte</td>
+                                <td><span class="price">5.80 EUR</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Foiedelotte_</span></td>
+                            </tr>
+
+                            <tr data-product="joue de lotte">
+                                <td>JOUE de lotte</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_JOUEdelotte_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="MERLU">
+                <div class="category-header" onclick="toggleCategory('merlu')">
+                    <span>MERLU</span>
+                    <span class="count">9</span>
+                </div>
+                <div class="category-content" id="merlu">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="colin 3/+">
+                                <td>Colin 3/+</td>
+                                <td><span class="price">14.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/+</span></div></td>
+                                <td><span class="code">LD_Colin3/+_</span></td>
+                            </tr>
+
+                            <tr data-product="colin 2,5/3">
+                                <td>Colin 2,5/3</td>
+                                <td><span class="price">12.20 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2,5/3</span></div></td>
+                                <td><span class="code">LD_Colin2,5/3_</span></td>
+                            </tr>
+
+                            <tr data-product="colin 1,8/2,5">
+                                <td>Colin 1,8/2,5</td>
+                                <td><span class="price">9.50 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,8/2,5</span></div></td>
+                                <td><span class="code">LD_Colin1,8/2,5_</span></td>
+                            </tr>
+
+                            <tr data-product="colin 1,4/1,8">
+                                <td>Colin 1,4/1,8</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,4/1,8</span></div></td>
+                                <td><span class="code">LD_Colin1,4/1,8_</span></td>
+                            </tr>
+
+                            <tr data-product="colinot 8/1,3">
+                                <td>Colinot 8/1,3</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">8/1,3</span></div></td>
+                                <td><span class="code">LD_Colinot8/1,3_</span></td>
+                            </tr>
+
+                            <tr data-product="colinot 5/800">
+                                <td>Colinot 5/800</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">5/800</span></div></td>
+                                <td><span class="code">LD_Colinot5/800_</span></td>
+                            </tr>
+
+                            <tr data-product="colinot3/500">
+                                <td>Colinot3/500</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Colinot3/500_</span></td>
+                            </tr>
+
+                            <tr data-product="portion 2300">
+                                <td>Portion 2300</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Portion2300_</span></td>
+                            </tr>
+
+                            <tr data-product="friture 1/200">
+                                <td>Friture 1/200</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/200</span></div></td>
+                                <td><span class="code">LD_Friture1/200_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="PB">
+                <div class="category-header" onclick="toggleCategory('pb')">
+                    <span>PB</span>
+                    <span class="count">33</span>
+                </div>
+                <div class="category-content" id="pb">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="pb langoustine">
+                                <td>PB Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBLangoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="pb langoustine">
+                                <td>PB Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBLangoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="pb langoustine">
+                                <td>PB Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBLangoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="pb langoustine">
+                                <td>PB Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBLangoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="langoustine">
+                                <td>Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Langoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="pb langoustine">
+                                <td>pb Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_pbLangoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="pb langoustine">
+                                <td>pb Langoustine</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_pbLangoustine_</span></td>
+                            </tr>
+
+                            <tr data-product="pb queue">
+                                <td>pb QUEUE</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">LD_pbQUEUE_</span></td>
+                            </tr>
+
+                            <tr data-product="pb queue">
+                                <td>pb QUEUE</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span><span class="badge badge-decoupe">QUEUE</span></div></td>
+                                <td><span class="code">LD_pbQUEUE_</span></td>
+                            </tr>
+
+                            <tr data-product="bar">
+                                <td>Bar</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Bar_</span></td>
+                            </tr>
+
+                            <tr data-product="pb bar">
+                                <td>PB Bar</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBBar_</span></td>
+                            </tr>
+
+                            <tr data-product="pb bar">
+                                <td>PB Bar</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBBar_</span></td>
+                            </tr>
+
+                            <tr data-product="pb bar">
+                                <td>PB Bar</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBBar_</span></td>
+                            </tr>
+
+                            <tr data-product="pb bar">
+                                <td>PB Bar</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBBar_</span></td>
+                            </tr>
+
+                            <tr data-product="pb rgt">
+                                <td>PB Rgt</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRgt_</span></td>
+                            </tr>
+
+                            <tr data-product="rgt">
+                                <td>Rgt</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Rgt_</span></td>
+                            </tr>
+
+                            <tr data-product="pb rgt">
+                                <td>PB Rgt</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRgt_</span></td>
+                            </tr>
+
+                            <tr data-product="pb rouget">
+                                <td>PB Rouget</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRouget_</span></td>
+                            </tr>
+
+                            <tr data-product="pb lieu">
+                                <td>PB Lieu</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBLieu_</span></td>
+                            </tr>
+
+                            <tr data-product="lieu">
+                                <td>Lieu</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Lieu_</span></td>
+                            </tr>
+
+                            <tr data-product="pb lieu">
+                                <td>PB Lieu</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBLieu_</span></td>
+                            </tr>
+
+                            <tr data-product="pb anon">
+                                <td>PB Anon</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBAnon_</span></td>
+                            </tr>
+
+                            <tr data-product="pb cabillaud">
+                                <td>PB Cabillaud</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBCabillaud_</span></td>
+                            </tr>
+
+                            <tr data-product="pb cabillaud">
+                                <td>PB Cabillaud</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBCabillaud_</span></td>
+                            </tr>
+
+                            <tr data-product="pb amande">
+                                <td>PB Amande</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBAmande_</span></td>
+                            </tr>
+
+                            <tr data-product="ligne coque">
+                                <td>ligne Coque</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">LIGNE</span></div></td>
+                                <td><span class="code">LD_ligneCoque_</span></td>
+                            </tr>
+
+                            <tr data-product="bigorneaux">
+                                <td>Bigorneaux</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Bigorneaux_</span></td>
+                            </tr>
+
+                            <tr data-product="pb clams">
+                                <td>PB Clams</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBClams_</span></td>
+                            </tr>
+
+                            <tr data-product="pb palourde">
+                                <td>PB Palourde</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBPalourde_</span></td>
+                            </tr>
+
+                            <tr data-product="pb praire">
+                                <td>PB Praire</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBPraire_</span></td>
+                            </tr>
+
+                            <tr data-product="pb telline">
+                                <td>PB Telline</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBTelline_</span></td>
+                            </tr>
+
+                            <tr data-product="tourteaux">
+                                <td>Tourteaux</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span style="color:#999">-</span></div></td>
+                                <td><span class="code">LD_Tourteaux_</span></td>
+                            </tr>
+
+                            <tr data-product="pb vernis">
+                                <td>PB Vernis</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBVernis_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="PB ORMEAUX">
+                <div class="category-header" onclick="toggleCategory('pb_ormeaux')">
+                    <span>PB ORMEAUX</span>
+                    <span class="count">1</span>
+                </div>
+                <div class="category-content" id="pb_ormeaux">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="pb venus">
+                                <td>PB venus</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBvenus_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="RAIE">
+                <div class="category-header" onclick="toggleCategory('raie')">
+                    <span>RAIE</span>
+                    <span class="count">4</span>
+                </div>
+                <div class="category-content" id="raie">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="pb raie">
+                                <td>PB Raie</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRaie_</span></td>
+                            </tr>
+
+                            <tr data-product="pb raie">
+                                <td>PB Raie</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRaie_</span></td>
+                            </tr>
+
+                            <tr data-product="pb raie">
+                                <td>PB Raie</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRaie_</span></td>
+                            </tr>
+
+                            <tr data-product="pb raie">
+                                <td>PB Raie</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-methode">PB</span></div></td>
+                                <td><span class="code">LD_PBRaie_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="SAINT PIERRE">
+                <div class="category-header" onclick="toggleCategory('saint_pierre')">
+                    <span>SAINT PIERRE</span>
+                    <span class="count">7</span>
+                </div>
+                <div class="category-content" id="saint_pierre">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="st pierre 2/3">
+                                <td>ST Pierre 2/3</td>
+                                <td><span class="price">35.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/3</span></div></td>
+                                <td><span class="code">LD_STPierre2/3_</span></td>
+                            </tr>
+
+                            <tr data-product="st pierre 1,5/2">
+                                <td>ST Pierre 1,5/2</td>
+                                <td><span class="price">21.70 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1,5/2</span></div></td>
+                                <td><span class="code">LD_STPierre1,5/2_</span></td>
+                            </tr>
+
+                            <tr data-product="st pierre 1/1,5">
+                                <td>ST Pierre 1/1,5</td>
+                                <td><span class="price">18.20 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/1,5</span></div></td>
+                                <td><span class="code">LD_STPierre1/1,5_</span></td>
+                            </tr>
+
+                            <tr data-product="st pierre 8/1">
+                                <td>St Pierre 8/1</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">8/1</span></div></td>
+                                <td><span class="code">LD_StPierre8/1_</span></td>
+                            </tr>
+
+                            <tr data-product="st pierre 6/800">
+                                <td>ST Pierre 6/800</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/800</span></div></td>
+                                <td><span class="code">LD_STPierre6/800_</span></td>
+                            </tr>
+
+                            <tr data-product="st pierre 6/1">
+                                <td>ST Pierre 6/1</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/1</span></div></td>
+                                <td><span class="code">LD_STPierre6/1_</span></td>
+                            </tr>
+
+                            <tr data-product="st pierre 1/1,5">
+                                <td>ST Pierre 1/1,5</td>
+                                <td><span class="price">60.60 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/1,5</span></div></td>
+                                <td><span class="code">LD_STPierre1/1,5_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="SOLE">
+                <div class="category-header" onclick="toggleCategory('sole')">
+                    <span>SOLE</span>
+                    <span class="count">8</span>
+                </div>
+                <div class="category-content" id="sole">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="blanche">
+                                <td>blanche</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-etat">BLANCHE</span></div></td>
+                                <td><span class="code">LD_blanche_</span></td>
+                            </tr>
+
+                            <tr data-product="xx sole">
+                                <td>XX Sole</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">XX</span></div></td>
+                                <td><span class="code">LD_XXSole_</span></td>
+                            </tr>
+
+                            <tr data-product="extra sole">
+                                <td>Extra Sole</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">LD_ExtraSole_</span></td>
+                            </tr>
+
+                            <tr data-product="extra sole">
+                                <td>Extra Sole</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">LD_ExtraSole_</span></td>
+                            </tr>
+
+                            <tr data-product="extra sole">
+                                <td>Extra Sole</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">LD_ExtraSole_</span></td>
+                            </tr>
+
+                            <tr data-product="sf sole">
+                                <td>SF Sole</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">SF</span></div></td>
+                                <td><span class="code">LD_SFSole_</span></td>
+                            </tr>
+
+                            <tr data-product="sf sole">
+                                <td>SF Sole</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">SF</span></div></td>
+                                <td><span class="code">LD_SFSole_</span></td>
+                            </tr>
+
+                            <tr data-product="extra solette">
+                                <td>Extra SOLETTE</td>
+                                <td><span class="price-na">N/A</span></td>
+                                <td><div class="attributes"><span class="badge badge-qualite">EXTRA</span></div></td>
+                                <td><span class="code">LD_ExtraSOLETTE_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-section" data-category="TURBOT">
+                <div class="category-header" onclick="toggleCategory('turbot')">
+                    <span>TURBOT</span>
+                    <span class="count">6</span>
+                </div>
+                <div class="category-content" id="turbot">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Prix</th>
+                                <th>Attributs</th>
+                                <th>Code Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr data-product="turbot 6/+">
+                                <td>Turbot 6/+</td>
+                                <td><span class="price">38.40 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">6/+</span></div></td>
+                                <td><span class="code">LD_Turbot6/+_</span></td>
+                            </tr>
+
+                            <tr data-product="turbot 4/6">
+                                <td>Turbot 4/6</td>
+                                <td><span class="price">34.60 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">4/6</span></div></td>
+                                <td><span class="code">LD_Turbot4/6_</span></td>
+                            </tr>
+
+                            <tr data-product="turbot 3/4">
+                                <td>Turbot 3/4</td>
+                                <td><span class="price">32.90 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">3/4</span></div></td>
+                                <td><span class="code">LD_Turbot3/4_</span></td>
+                            </tr>
+
+                            <tr data-product="turbot 2/3">
+                                <td>Turbot 2/3</td>
+                                <td><span class="price">25.20 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">2/3</span></div></td>
+                                <td><span class="code">LD_Turbot2/3_</span></td>
+                            </tr>
+
+                            <tr data-product="turbot 1/2">
+                                <td>Turbot 1/2</td>
+                                <td><span class="price">30.00 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">1/2</span></div></td>
+                                <td><span class="code">LD_Turbot1/2_</span></td>
+                            </tr>
+
+                            <tr data-product="turbot 0,5/1">
+                                <td>Turbot 0,5/1</td>
+                                <td><span class="price">18.50 EUR</span></td>
+                                <td><div class="attributes"><span class="badge badge-calibre">0,5/1</span></div></td>
+                                <td><span class="code">LD_Turbot0,5/1_</span></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            Parser Laurent Daniel - LaCriee ELT Pipeline
+        </footer>
+    </div>
+
+    <script>
+        function toggleCategory(id) {
+            const content = document.getElementById(id);
+            content.classList.toggle('open');
+        }
+
+        function expandAll() {
+            document.querySelectorAll('.category-content').forEach(el => el.classList.add('open'));
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.category-content').forEach(el => el.classList.remove('open'));
+        }
+
+        function filterProducts() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const sections = document.querySelectorAll('.category-section');
+
+            sections.forEach(section => {
+                const rows = section.querySelectorAll('tbody tr');
+                let hasVisible = false;
+
+                rows.forEach(row => {
+                    const productName = row.getAttribute('data-product');
+                    if (productName.includes(query)) {
+                        row.classList.remove('hidden');
+                        hasVisible = true;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                // Afficher/masquer la section selon si elle a des resultats
+                if (hasVisible || query === '') {
+                    section.classList.remove('hidden');
+                    if (query !== '') {
+                        section.querySelector('.category-content').classList.add('open');
+                    }
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+        }
+
+        // Ouvrir la premiere categorie par defaut
+        document.querySelector('.category-content')?.classList.add('open');
+    </script>
+</body>
+</html>
