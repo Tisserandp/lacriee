@@ -154,9 +154,65 @@ DEMARNE_SPECIES_PATTERNS = [
     # Catégories génériques
     (r'^COQUILLAGES', 'COQUILLAGES'),
     (r'^CRUSTACES', 'CRUSTACES'),
-    # Catégories FILET → categorie=FILET (décision utilisateur)
-    (r'^FILET', 'FILET'),
+    # Catégories FILET → sera traité spécialement par extract_species_from_filet()
+    # NE PAS matcher ici, laisser la logique spéciale prendre le relais
 ]
+
+# =============================================================================
+# PATTERNS POUR EXTRACTION D'ESPÈCE DEPUIS CATÉGORIES FILET
+# =============================================================================
+
+# Pattern pour catégorie spécifique: FILET(S) DE|D' {ESPECE}
+# Ex: "FILET DE TRUITE", "FILETS DE BAR ÉLEVAGE", "FILETS D'ANCHOIS"
+FILET_CAT_SPECIES_PATTERN = r"FILETS?\s+(?:DE\s+|D')([A-Z]+)"
+
+# Pattern pour catégories génériques (chercher l'espèce dans variante)
+# Ex: "FILETS POISSON BLANC", "FILETS POISSON BLEU", "POISSONS FILETS"
+FILET_CAT_GENERIC_PATTERN = r'(FILETS?\s+POISSON\s+(BLANC|BLEU)|POISSONS?\s+FILETS?)'
+
+# Pattern pour extraire l'espèce depuis variante
+# Ex: "Filet cabillaud", "Filet de merlu", "Filet d'églefin"
+FILET_VAR_SPECIES_PATTERN = r"FILET\s+(?:DE\s+|D')?([A-Za-z]+(?:\s+[A-Za-z]+)?)"
+
+# Pattern alternatif pour variantes sans "Filet" (ex: "Aile de Raie", "Pavé de Morue")
+FILET_VAR_ALT_PATTERN = r'(?:PAVE|AILE)\s+DE\s+([A-Z]+)'
+
+# Mapping des espèces extraites depuis les catégories FILET vers valeurs normalisées
+FILET_SPECIES_NORMALIZE = {
+    'CABILLAUD': 'CABILLAUD',
+    'LIEU NOIR': 'LIEU NOIR',
+    'LIEU JAUNE': 'LIEU JAUNE',
+    'EGLEFIN': 'EGLEFIN',
+    'MERLAN': 'MERLAN',
+    'MERLU': 'MERLU',
+    'SEBASTE': 'SEBASTE',
+    'LOUP': 'LOUP DE MER',
+    'JULIENNE': 'JULIENNE',
+    'LINGUE': 'LINGUE',
+    'FLETAN': 'FLETAN',
+    'TACAUD': 'TACAUD',
+    'SABRE': 'SABRE',
+    'PLIE': 'PLIE',
+    'PERCHE': 'PERCHE DU NIL',
+    'THON': 'THON',
+    'ESPADON': 'ESPADON',
+    'MAQUEREAU': 'MAQUEREAU',
+    'SARDINE': 'SARDINE',
+    'TRUITE': 'TRUITE',
+    'BAR': 'BAR',
+    'DORADE': 'DORADE',
+    'ANCHOIS': 'ANCHOIS',
+    'HARENG': 'HARENG',
+    'HARENGS': 'HARENG',
+    'SANDRE': 'SANDRE',
+    'LOTTE': 'LOTTE',
+    'ROUGET': 'ROUGET',
+    'SOLE': 'SOLE',
+    'RAIE': 'RAIE',
+    'SAUMON': 'SAUMON',
+    'TURBOT': 'TURBOT',
+    'MORUE': 'MORUE',
+}
 
 # Origines à extraire depuis les catégories Demarne
 DEMARNE_ORIGINE_PATTERNS = [
@@ -202,7 +258,7 @@ DEMARNE_ETAT_PATTERNS = [
 
 # Découpes à extraire depuis les variantes Demarne
 DEMARNE_DECOUPE_PATTERNS = [
-    (r'\bFILET\b', 'FILET'),
+    (r'\bFILETS?\b', 'FILET'),  # Singulier et pluriel
     (r'\bDOS\b', 'DOS'),
     (r'\bQUEUE\b', 'QUEUE'),
     (r'\bPAVE\b', 'PAVE'),
@@ -463,7 +519,78 @@ def normalize_trim(trim: Optional[str]) -> Optional[str]:
 # FONCTIONS SPÉCIFIQUES DEMARNE
 # =============================================================================
 
-def normalize_demarne_categorie(categorie: Optional[str], product_name: Optional[str] = None) -> dict:
+def _normalize_filet_species(species_raw: str) -> str:
+    """
+    Normalise une espèce extraite depuis une catégorie/variante FILET.
+
+    Args:
+        species_raw: Espèce brute extraite par regex
+
+    Returns:
+        Espèce normalisée
+    """
+    species_upper = remove_accents(species_raw.upper().strip())
+
+    # Correspondance exacte
+    if species_upper in FILET_SPECIES_NORMALIZE:
+        return FILET_SPECIES_NORMALIZE[species_upper]
+
+    # Correspondance par préfixe (ex: "MERLU A" → MERLU)
+    for key, val in FILET_SPECIES_NORMALIZE.items():
+        if species_upper.startswith(key):
+            return val
+
+    return species_upper
+
+
+def extract_species_from_filet(categorie: str, variante: Optional[str] = None) -> Optional[str]:
+    """
+    Extrait l'espèce depuis une catégorie FILET et/ou sa variante.
+
+    Logique:
+    1. Si catégorie générique ("FILETS POISSON BLANC/BLEU", "POISSONS FILETS")
+       → chercher l'espèce dans la variante
+    2. Si catégorie spécifique ("FILET DE TRUITE", "FILETS D'ANCHOIS")
+       → extraire l'espèce depuis la catégorie elle-même
+
+    Args:
+        categorie: Catégorie Demarne brute (ex: "FILETS POISSON BLANC")
+        variante: Variante Demarne brute (ex: "Filet de merlu")
+
+    Returns:
+        Espèce normalisée ou None si non trouvée
+    """
+    cat_upper = remove_accents(categorie.upper()) if categorie else ''
+    var_upper = remove_accents(variante.upper()) if variante else ''
+
+    # 1. Catégorie générique → chercher dans variante
+    if re.search(FILET_CAT_GENERIC_PATTERN, cat_upper):
+        if variante:
+            # Pattern principal: "Filet (de|d') {espèce}"
+            match = re.search(FILET_VAR_SPECIES_PATTERN, var_upper)
+            if match:
+                return _normalize_filet_species(match.group(1))
+
+            # Pattern alternatif: "Aile de Raie", "Pavé de Morue"
+            alt_match = re.search(FILET_VAR_ALT_PATTERN, var_upper)
+            if alt_match:
+                return _normalize_filet_species(alt_match.group(1))
+
+        return None  # Catégorie générique sans espèce trouvée dans variante
+
+    # 2. Catégorie spécifique: "FILET(S) DE|D' {ESPECE}"
+    match = re.search(FILET_CAT_SPECIES_PATTERN, cat_upper)
+    if match:
+        return _normalize_filet_species(match.group(1))
+
+    return None
+
+
+def normalize_demarne_categorie(
+    categorie: Optional[str],
+    product_name: Optional[str] = None,
+    variante: Optional[str] = None
+) -> dict:
     """
     Normalise une catégorie Demarne en extrayant:
     - categorie: Espèce pure
@@ -471,10 +598,12 @@ def normalize_demarne_categorie(categorie: Optional[str], product_name: Optional
     - qualite: SUP, PREMIUM, LABEL ROUGE
     - etat: ENTIER, VIDE, CUIT, etc.
     - origine_from_categorie: Origine extraite de la catégorie
+    - decoupe_from_categorie: Découpe extraite si catégorie FILET
 
     Args:
         categorie: Catégorie Demarne brute (ex: "SAUMON SUPÉRIEUR NORVÈGE")
         product_name: Nom du produit pour contexte
+        variante: Variante pour extraction d'espèce dans les catégories FILET
 
     Returns:
         dict avec les champs extraits
@@ -485,6 +614,7 @@ def normalize_demarne_categorie(categorie: Optional[str], product_name: Optional
         "qualite": None,
         "etat": None,
         "origine_from_categorie": None,
+        "decoupe_from_categorie": None,
     }
 
     if not categorie:
@@ -492,15 +622,28 @@ def normalize_demarne_categorie(categorie: Optional[str], product_name: Optional
 
     cat_upper = remove_accents(categorie.upper().strip())
 
-    # 1. Extraire l'espèce
-    for pattern, species in DEMARNE_SPECIES_PATTERNS:
-        if re.search(pattern, cat_upper, re.IGNORECASE):
+    # 1. Cas spécial: catégories FILET
+    # Détecter si la catégorie contient FILET et extraire l'espèce
+    if 'FILET' in cat_upper:
+        species = extract_species_from_filet(categorie, variante)
+        if species:
             result["categorie"] = species
-            break
+            result["decoupe_from_categorie"] = "FILET"
+        else:
+            # Espèce non trouvée, garder la catégorie originale normalisée
+            # mais marquer quand même la découpe comme FILET
+            result["categorie"] = cat_upper
+            result["decoupe_from_categorie"] = "FILET"
+    else:
+        # 2. Extraction standard via les patterns DEMARNE_SPECIES_PATTERNS
+        for pattern, species in DEMARNE_SPECIES_PATTERNS:
+            if re.search(pattern, cat_upper, re.IGNORECASE):
+                result["categorie"] = species
+                break
 
-    # Si pas d'espèce trouvée, garder la catégorie originale
-    if not result["categorie"]:
-        result["categorie"] = cat_upper
+        # Si pas d'espèce trouvée, garder la catégorie originale
+        if not result["categorie"]:
+            result["categorie"] = cat_upper
 
     # 2. Extraire le type de production
     for pattern, type_prod in DEMARNE_TYPE_PRODUCTION_PATTERNS:
@@ -839,10 +982,17 @@ def _harmonize_demarne_product(product: dict) -> dict:
     """
     result = product.copy()
 
+    # Récupérer les valeurs brutes
+    categorie_raw = result.get("Categorie") or result.get("categorie")
+    variante_raw = result.get("Variante") or result.get("variante")
+    product_name_raw = result.get("ProductName") or result.get("product_name")
+
     # --- 1. Traiter la Categorie Demarne ---
+    # Passer la variante pour extraction d'espèce dans les catégories FILET
     cat_result = normalize_demarne_categorie(
-        result.get("Categorie") or result.get("categorie"),
-        result.get("ProductName") or result.get("product_name")
+        categorie_raw,
+        product_name_raw,
+        variante_raw
     )
     result["categorie"] = cat_result["categorie"]
 
@@ -854,12 +1004,14 @@ def _harmonize_demarne_product(product: dict) -> dict:
     if cat_result["etat"]:
         result["etat"] = cat_result["etat"]
 
+    # Si découpe extraite depuis catégorie FILET, la définir
+    if cat_result.get("decoupe_from_categorie"):
+        result["decoupe"] = cat_result["decoupe_from_categorie"]
+
     # --- 2. Traiter la Variante Demarne ---
-    var_result = normalize_demarne_variante(
-        result.get("Variante") or result.get("variante")
-    )
-    # Ne pas écraser si déjà défini depuis la catégorie
-    if var_result["decoupe"]:
+    var_result = normalize_demarne_variante(variante_raw)
+    # Découpe depuis variante: ne pas écraser si déjà défini depuis catégorie FILET
+    if var_result["decoupe"] and not result.get("decoupe"):
         result["decoupe"] = var_result["decoupe"]
     if var_result["etat"] and not result.get("etat"):
         result["etat"] = var_result["etat"]
