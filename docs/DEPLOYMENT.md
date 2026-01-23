@@ -30,15 +30,10 @@ gcloud run deploy parsers \
   --source . \
   --project=lacriee \
   --region=europe-west1 \
-  --platform=managed \
   --allow-unauthenticated \
   --memory=1Gi \
-  --cpu=1 \
   --timeout=300s \
-  --max-instances=10 \
-  --min-instances=0 \
-  --concurrency=80 \
-  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
+  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives,PDF_PARSER_API_KEY=ProvidersBEO123"
 ```
 
 ### 3. Récupérer l'URL
@@ -57,20 +52,10 @@ Les variables suivantes sont configurées au déploiement:
 
 - `GCP_PROJECT_ID=lacriee` - Projet GCP
 - `GCS_BUCKET=lacriee-archives` - Bucket d'archivage
+- `PDF_PARSER_API_KEY=ProvidersBEO123` - Clé d'authentification pour les endpoints
 - `PORT=8080` - Défini dans le Dockerfile
 
-### Secrets (Secret Manager)
-
-Le service utilise les secrets suivants:
-
-- `PDF_PARSER_API_KEY` - Clé d'authentification pour les endpoints
-
-Récupérer un secret:
-```bash
-gcloud secrets versions access latest \
-  --secret=PDF_PARSER_API_KEY \
-  --project=lacriee
-```
+**Note**: La clé API est passée comme variable d'environnement lors du déploiement.
 
 ### Permissions IAM
 
@@ -80,7 +65,6 @@ Le service utilise le compte de service par défaut:
 Permissions nécessaires:
 - `roles/bigquery.dataEditor` - Accès au dataset BigQuery
 - `roles/storage.objectAdmin` - Archivage dans GCS
-- `roles/secretmanager.secretAccessor` - Accès aux secrets
 
 ## Endpoints Disponibles
 
@@ -135,7 +119,15 @@ gcloud run services update-traffic parsers \
 
 ```bash
 gcloud run services update parsers \
-  --update-env-vars="NOUVELLE_VAR=valeur" \
+  --update-env-vars="PDF_PARSER_API_KEY=nouvelle_cle" \
+  --project=lacriee \
+  --region=europe-west1
+```
+
+Ou ajouter plusieurs variables:
+```bash
+gcloud run services update parsers \
+  --update-env-vars="PDF_PARSER_API_KEY=nouvelle_cle,GCP_PROJECT_ID=lacriee" \
   --project=lacriee \
   --region=europe-west1
 ```
@@ -172,22 +164,22 @@ Configurer Cloud Monitoring pour:
 ### Test Simple
 ```bash
 curl https://parsers-847079377265.europe-west1.run.app/test-parser \
-  -H "X-API-Key: VOTRE_CLE_API"
+  -H "X-API-Key: ProvidersBEO123"
 ```
 
 ### Test avec Fichier
 ```bash
 curl -X POST https://parsers-847079377265.europe-west1.run.app/parseLaurentDpdf \
-  -H "X-API-Key: VOTRE_CLE_API" \
+  -H "X-API-Key: ProvidersBEO123" \
   -F "file=@chemin/vers/fichier.pdf"
 ```
 
 ## Sécurité
 
-- API key stockée dans Secret Manager
-- Service account avec permissions minimales
+- API key passée comme variable d'environnement lors du déploiement
+- Service account avec permissions minimales (BigQuery, GCS)
 - CORS configuré dans [main.py](../main.py)
-- Allow-unauthenticated activé (sécurisé par API key)
+- Allow-unauthenticated activé (sécurisé par API key dans header X-API-Key)
 
 ## Coûts Estimés
 
@@ -245,6 +237,7 @@ docker build -t parsers-local .
 docker run -p 8080:8080 \
   -e GCP_PROJECT_ID=lacriee \
   -e GCS_BUCKET=lacriee-archives \
+  -e PDF_PARSER_API_KEY=ProvidersBEO123 \
   -e GOOGLE_APPLICATION_CREDENTIALS=/tmp/keys/sa.json \
   -v ~/.config/gcloud:/tmp/keys:ro \
   parsers-local
@@ -273,6 +266,12 @@ gcloud run services delete parsers \
 - Optimiser le code pour réduire l'utilisation mémoire
 
 ## Historique des Déploiements
+
+- **2026-01-23**: Déploiement avec clé API en variable d'environnement
+  - Révision `parsers-00007-78z`
+  - Configuration: 1Gi RAM, europe-west1
+  - Env vars: GCP_PROJECT_ID, GCS_BUCKET, PDF_PARSER_API_KEY
+  - URL: https://parsers-847079377265.europe-west1.run.app
 
 - **2026-01-22**: Déploiement initial
   - Révision `parsers-00003-f7h`
