@@ -33,8 +33,10 @@ gcloud run deploy parsers \
   --allow-unauthenticated \
   --memory=1Gi \
   --timeout=300s \
-  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives,PDF_PARSER_API_KEY=ProvidersBEO123"
+  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives,PDF_PARSER_API_KEY=YOUR_API_KEY"
 ```
+
+Remplacer `YOUR_API_KEY` par la vraie clé API.
 
 ### 3. Récupérer l'URL
 ```bash
@@ -52,7 +54,7 @@ Les variables suivantes sont configurées au déploiement:
 
 - `GCP_PROJECT_ID=lacriee` - Projet GCP
 - `GCS_BUCKET=lacriee-archives` - Bucket d'archivage
-- `PDF_PARSER_API_KEY=ProvidersBEO123` - Clé d'authentification pour les endpoints
+- `PDF_PARSER_API_KEY` - Clé d'authentification pour les endpoints (voir `.env.local` ou Secret Manager)
 - `PORT=8080` - Défini dans le Dockerfile
 
 **Note**: La clé API est passée comme variable d'environnement lors du déploiement.
@@ -164,22 +166,34 @@ Configurer Cloud Monitoring pour:
 ### Test Simple
 ```bash
 curl https://parsers-847079377265.europe-west1.run.app/test-parser \
-  -H "X-API-Key: ProvidersBEO123"
+  -H "X-API-Key: YOUR_API_KEY"
 ```
 
 ### Test avec Fichier
 ```bash
 curl -X POST https://parsers-847079377265.europe-west1.run.app/parseLaurentDpdf \
-  -H "X-API-Key: ProvidersBEO123" \
+  -H "X-API-Key: YOUR_API_KEY" \
   -F "file=@chemin/vers/fichier.pdf"
 ```
 
 ## Sécurité
 
-- API key passée comme variable d'environnement lors du déploiement
+- **API Key**: Passée comme variable d'environnement à Cloud Run (ne jamais commiter en clair)
+- **Variables Sensibles**: Stocker dans `.env.local` (ignoré par git)
 - Service account avec permissions minimales (BigQuery, GCS)
 - CORS configuré dans [main.py](../main.py)
 - Allow-unauthenticated activé (sécurisé par API key dans header X-API-Key)
+
+### Gestion des Secrets Localement
+
+Créer un fichier `.env.local` (ignoré par git):
+```bash
+GCP_PROJECT_ID=lacriee
+GCS_BUCKET=lacriee-archives
+PDF_PARSER_API_KEY=ProvidersBEO123
+```
+
+Ne **JAMAIS** commiter les vraies clés API en clair dans git.
 
 ## Coûts Estimés
 
@@ -237,7 +251,7 @@ docker build -t parsers-local .
 docker run -p 8080:8080 \
   -e GCP_PROJECT_ID=lacriee \
   -e GCS_BUCKET=lacriee-archives \
-  -e PDF_PARSER_API_KEY=ProvidersBEO123 \
+  -e PDF_PARSER_API_KEY=YOUR_API_KEY \
   -e GOOGLE_APPLICATION_CREDENTIALS=/tmp/keys/sa.json \
   -v ~/.config/gcloud:/tmp/keys:ro \
   parsers-local
