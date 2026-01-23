@@ -185,6 +185,8 @@ def get_vvqm_category(espece: str) -> str:
         "ELINGUE": "ELINGUE",
         "BROSME": "BROSME",
         "MOSTELLE": "MOSTELLE",
+        "GRENADIER": "GRENADIER",
+        "SABRE": "SABRE",
         "ANON": "ANON",
         # Coquillages
         "COQUILLE": "COQUILLE ST JACQUES",

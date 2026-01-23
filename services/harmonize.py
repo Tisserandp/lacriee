@@ -349,6 +349,12 @@ def normalize_categorie(categorie: Optional[str], product_name: Optional[str] = 
     result = {"categorie": None, "decoupe_from_categorie": None}
 
     if not categorie:
+        # Si catégorie vide mais product_name contient FILET → extraire espèce
+        if product_name and 'FILET' in product_name.upper():
+            result["decoupe_from_categorie"] = "FILET"
+            species = extract_species_from_name(product_name)
+            if species:
+                result["categorie"] = species
         return result
 
     categorie = normalize_value(categorie)
@@ -780,6 +786,7 @@ def clean_demarne_origine(origine: Optional[str]) -> Optional[str]:
 SPECIES_PATTERNS = [
     # Patterns triés du plus spécifique au plus générique
     (r'\bROUGET\s*BARBET\b', 'ROUGET BARBET'),
+    (r'\bROUGET\b', 'ROUGET'),
     (r'\bSAINT\s*PIERRE\b', 'SAINT PIERRE'),
     (r'\bST\s*PIERRE\b', 'SAINT PIERRE'),
     (r'\bLIEU\s*JAUNE\b', 'LIEU JAUNE'),
@@ -813,6 +820,19 @@ SPECIES_PATTERNS = [
     (r'\bCREVETTE\b', 'CREVETTES'),
     (r'\bLIMANDE\b', 'LIMANDE'),
     (r'\bCARRELET\b', 'CARRELET'),
+    # Espèces ajoutées pour VVQM (section FILETS)
+    (r'\bESPADON\b', 'ESPADON'),
+    (r'\bMOSTELLE\b', 'MOSTELLE'),
+    (r'\bJULIENNE\b', 'JULIENNE'),
+    (r'\bGRENADIER\b', 'GRENADIER'),
+    (r'\bELINGUE\b', 'ELINGUE'),
+    (r'\bSABRE\b', 'SABRE'),
+    (r'\bBROSME\b', 'BROSME'),
+    # Espèces ajoutées pour Laurent Daniel
+    (r'\bTACAUD\b', 'TACAUD'),
+    (r'\bLINGUE\b', 'LINGUE'),
+    (r'\bMORUETTE\b', 'MORUETTE'),
+    (r'\bANON\b', 'ANON'),
 ]
 
 
