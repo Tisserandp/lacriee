@@ -29,6 +29,19 @@ from datetime import datetime
 from io import BytesIO
 from typing import Optional
 
+from parsers.utils import refine_generic_category
+
+# Catégories génériques à affiner pour Audierne
+AUDIERNE_GENERIC_CATEGORIES = {
+    'DIVERS', 'DIVERS POISSONS',
+    'COQUILLAGES',
+    'CRUSTACES',
+    'CRUSTACES CUITS PAST',
+    'POISSONS BLEUS',
+    'FILET DE POISSONS',
+    'SAUMONS',
+}
+
 # Import conditionnel pour éviter les erreurs si harmonize.py n'existe pas encore
 try:
     from services.harmonize import harmonize_products
@@ -563,6 +576,14 @@ def parse_audierne(file_bytes: bytes, harmonize: bool = False, **kwargs) -> list
     """
     # Extraction des données brutes
     products = extract_audierne_data_from_pdf(file_bytes)
+
+    # Affinage des catégories génériques vers espèces spécifiques
+    for product in products:
+        product["Categorie"] = refine_generic_category(
+            product.get("Categorie"),
+            product.get("ProductName"),
+            AUDIERNE_GENERIC_CATEGORIES
+        )
 
     # Application optionnelle de l'harmonisation
     if harmonize:
