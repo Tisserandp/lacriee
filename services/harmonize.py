@@ -21,14 +21,22 @@ from typing import Optional
 
 # --- Categorie ---
 CATEGORIE_MAPPING = {
-    # Variations vers valeur harmonisée
+    # Variations vers valeur harmonisée (garder la spécificité)
     "PLIE/ CARRELET": "CARRELET",
     "PLIE/CARRELET": "CARRELET",
     "CRUSTACES BRETONS": "CRUSTACES",
     "CRUSTACES CUITS PAST": "CRUSTACES",
-    "TOURTEAUX - ARAIGNEES": "CRUSTACES",
-    "TOURTEAUX": "CRUSTACES",
-    "ARAIGNEES": "CRUSTACES",
+    # Normalisation singulier (garder l'espèce spécifique)
+    "TOURTEAUX": "TOURTEAU",
+    "ARAIGNEES": "ARAIGNEE",
+    "HOMARDS": "HOMARD",
+    "LANGOUSTINES": "LANGOUSTINE",
+    "LANGOUSTES": "LANGOUSTE",
+    "HUITRES": "HUITRE",
+    "BULOTS": "BULOT",
+    "BIGORNEAUX": "BIGORNEAU",
+    "PALOURDES": "PALOURDE",
+    "OURSINS": "OURSIN",
     "ST PIERRE": "SAINT PIERRE",
     "SAUMONS": "SAUMON",
     "LIEU": "LIEU JAUNE",
@@ -182,6 +190,7 @@ FILET_SPECIES_NORMALIZE = {
     'CABILLAUD': 'CABILLAUD',
     'LIEU NOIR': 'LIEU NOIR',
     'LIEU JAUNE': 'LIEU JAUNE',
+    'LIEU': 'LIEU JAUNE',
     'EGLEFIN': 'EGLEFIN',
     'MERLAN': 'MERLAN',
     'MERLU': 'MERLU',
@@ -189,11 +198,13 @@ FILET_SPECIES_NORMALIZE = {
     'LOUP': 'LOUP DE MER',
     'JULIENNE': 'JULIENNE',
     'LINGUE': 'LINGUE',
+    'LINGUE BLEUE': 'LINGUE',
     'FLETAN': 'FLETAN',
     'TACAUD': 'TACAUD',
     'SABRE': 'SABRE',
     'PLIE': 'PLIE',
     'PERCHE': 'PERCHE DU NIL',
+    'PERCHE DU NIL': 'PERCHE DU NIL',
     'THON': 'THON',
     'ESPADON': 'ESPADON',
     'MAQUEREAU': 'MAQUEREAU',
@@ -207,11 +218,44 @@ FILET_SPECIES_NORMALIZE = {
     'SANDRE': 'SANDRE',
     'LOTTE': 'LOTTE',
     'ROUGET': 'ROUGET',
+    'ROUGET BARBET': 'ROUGET BARBET',
     'SOLE': 'SOLE',
     'RAIE': 'RAIE',
     'SAUMON': 'SAUMON',
     'TURBOT': 'TURBOT',
     'MORUE': 'MORUE',
+    # Especes pour categories generiques
+    'COLIN': 'COLIN',
+    'COLIN ALASKA': 'COLIN',
+    'BROCHET': 'BROCHET',
+    'PAGRE': 'PAGRE',
+    'GRONDIN': 'GRONDIN',
+    'CARRELET': 'CARRELET',
+    'LIMANDE': 'LIMANDE',
+    'BARBUE': 'BARBUE',
+    'CHINCHARD': 'CHINCHARD',
+    'EPERLAN': 'EPERLAN',
+    'MERLUCHON': 'MERLUCHON',
+    'MEROU': 'MEROU',
+    'MEROU BADECHE': 'MEROU',
+    'MEROU THIOFF': 'MEROU',
+    'MEROU A POINTS BLEUS': 'MEROU',
+    'BARRACUDA': 'BARRACUDA',
+    'RASCASSE': 'RASCASSE',
+    'RASCASSE ROUGE': 'RASCASSE',
+    'HOKI': 'HOKI',
+    'REQUIN': 'REQUIN',
+    'REQUIN PEAU BLEUE': 'REQUIN',
+    'MAHI': 'MAHI MAHI',
+    'MAHI MAHI': 'MAHI MAHI',
+    'BADECHE': 'BADECHE',
+    'BADECHE ROUGE': 'BADECHE',
+    'DORADE CORYPHENE': 'MAHI MAHI',
+    'OMBLE': 'OMBLE CHEVALIER',
+    'OMBLE CHEVALIER': 'OMBLE CHEVALIER',
+    'MULET': 'MULET',
+    'SAUMONETTE': 'SAUMONETTE',
+    'SAUMONETTE EMISSOLE': 'SAUMONETTE',
 }
 
 # Origines à extraire depuis les catégories Demarne
@@ -269,6 +313,27 @@ DEMARNE_DECOUPE_PATTERNS = [
     (r'\bPINCE\b', 'PINCE'),
     (r'\bDARNE\b', 'DARNE'),
     (r'\bSTEAK\b', 'STEAK'),
+]
+
+# Catégories génériques Demarne où l'espèce doit être extraite de la variante
+DEMARNE_GENERIC_CATEGORIES = {
+    'DOS',
+    'AUTRES POISSONS',
+    'POISSON PLAT',
+    'POISSON ENTIER',
+    'PETIT POISSON',
+    'POISSON DE ROCHE',
+    'POISSONS EXOTIQUES',
+    "POISSONS D'EAU DOUCE",
+}
+
+# Patterns pour extraire espèce + découpe depuis variante
+# Ex: "Dos de cabillaud", "Filet de merlu", "Pavé de HOKI"
+VARIANTE_DECOUPE_PATTERNS = [
+    (r'DOS\s+(?:DE\s+|D\')([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)', 'DOS'),
+    (r'FILETS?\s+(?:DE\s+|D\')([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)', 'FILET'),
+    (r'PAVE\s+(?:DE\s+)?([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)', 'PAVE'),
+    (r'STEAK\s+([A-Za-zÀ-ÿ]+)', 'STEAK'),
 ]
 
 # Origines Demarne à normaliser (corrections orthographiques et variations)
@@ -343,30 +408,60 @@ def normalize_categorie(categorie: Optional[str], product_name: Optional[str] = 
     """
     Normalise une catégorie et gère les cas spéciaux (FILET).
 
+    FILET peut être:
+    - Une découpe (ex: "Filet de Bar" → decoupe=FILET)
+    - Une méthode de pêche (ex: "Bar de Filet" → methode_peche=FILET)
+
+    La distinction se fait par la position de FILET par rapport à l'espèce.
+
     Returns:
-        dict avec 'categorie' et optionnellement 'decoupe' si extrait
+        dict avec 'categorie', 'decoupe_from_categorie', 'methode_peche_from_categorie'
     """
-    result = {"categorie": None, "decoupe_from_categorie": None}
+    result = {
+        "categorie": None,
+        "decoupe_from_categorie": None,
+        "methode_peche_from_categorie": None
+    }
 
     if not categorie:
-        # Si catégorie vide mais product_name contient FILET → extraire espèce
+        # Si catégorie vide mais product_name contient FILET → analyser le contexte
         if product_name and 'FILET' in product_name.upper():
-            result["decoupe_from_categorie"] = "FILET"
-            species = extract_species_from_name(product_name)
-            if species:
-                result["categorie"] = species
+            filet_meaning = determine_filet_meaning(product_name)
+            if filet_meaning["is_methode_peche"]:
+                result["methode_peche_from_categorie"] = "FILET"
+            else:
+                result["decoupe_from_categorie"] = "FILET"
+            if filet_meaning["species"]:
+                result["categorie"] = filet_meaning["species"]
+            else:
+                species = extract_species_from_name(product_name)
+                if species:
+                    result["categorie"] = species
         return result
 
     categorie = normalize_value(categorie)
 
-    # Cas spécial: catégories FILET
-    if categorie in ("FILET", "FILETS", "FILET DE POISSONS", "BAR FILET"):
-        result["decoupe_from_categorie"] = "FILET"
-        # Essayer d'extraire l'espèce depuis le nom du produit
-        if product_name:
-            species = extract_species_from_name(product_name)
-            if species:
-                result["categorie"] = species
+    # Cas spécial: catégories contenant FILET
+    if "FILET" in categorie:
+        # Analyser la position de FILET par rapport à l'espèce
+        # Priorité: analyser la catégorie, puis le product_name si besoin
+        filet_meaning = determine_filet_meaning(categorie)
+
+        if filet_meaning["is_methode_peche"]:
+            # FILET après espèce = méthode de pêche (ex: "BAR FILET")
+            result["methode_peche_from_categorie"] = "FILET"
+            if filet_meaning["species"]:
+                result["categorie"] = filet_meaning["species"]
+        else:
+            # FILET avant espèce ou seul = découpe (ex: "FILET DE BAR", "FILETS")
+            result["decoupe_from_categorie"] = "FILET"
+            # Extraire l'espèce depuis la catégorie ou le product_name
+            if filet_meaning["species"]:
+                result["categorie"] = filet_meaning["species"]
+            elif product_name:
+                species = extract_species_from_name(product_name)
+                if species:
+                    result["categorie"] = species
         return result
 
     # Mapping standard
@@ -592,6 +687,62 @@ def extract_species_from_filet(categorie: str, variante: Optional[str] = None) -
     return None
 
 
+def extract_species_from_variante(variante: Optional[str]) -> tuple:
+    """
+    Extrait l'espèce et la découpe depuis une variante Demarne.
+
+    Cas 1: Variante avec découpe → "Dos de cabillaud" → (CABILLAUD, DOS)
+    Cas 2: Variante simple → "Sole" → (SOLE, None)
+
+    Args:
+        variante: Variante Demarne brute
+
+    Returns:
+        tuple (espèce, découpe) ou (None, None) si non trouvé
+    """
+    if not variante:
+        return None, None
+
+    var_upper = remove_accents(variante.upper().strip())
+
+    # 1. Chercher pattern "découpe + espèce"
+    for pattern, decoupe in VARIANTE_DECOUPE_PATTERNS:
+        match = re.search(pattern, var_upper, re.IGNORECASE)
+        if match:
+            species_raw = match.group(1).strip()
+            # Nettoyer suffixes courants (S, A, S/P, MSC, VDK, etc.)
+            species_clean = re.sub(
+                r'\s+(S|A|S/P|MSC|VDK|LIGNE|VIDE|VIDÉ|A/P|BLANC)$',
+                '',
+                species_raw,
+                flags=re.IGNORECASE
+            )
+            species = _normalize_filet_species(species_clean)
+            return species, decoupe
+
+    # 2. Variante simple = espèce directe
+    # Nettoyer la variante des suffixes courants
+    species_raw = re.sub(
+        r'\s+(S|A|VDK|LIGNE|VIDE|VIDÉ|gros|rouge)$',
+        '',
+        var_upper,
+        flags=re.IGNORECASE
+    )
+    species = _normalize_filet_species(species_raw.strip())
+
+    # Vérifier si c'est une espèce connue dans le mapping
+    if species in FILET_SPECIES_NORMALIZE.values():
+        return species, None
+
+    # Vérifier avec les patterns d'espèces DEMARNE
+    for pattern, sp in DEMARNE_SPECIES_PATTERNS:
+        if re.search(pattern, species, re.IGNORECASE):
+            return sp, None
+
+    # Retourner quand même la variante nettoyée comme espèce
+    return species, None
+
+
 def normalize_demarne_categorie(
     categorie: Optional[str],
     product_name: Optional[str] = None,
@@ -640,8 +791,21 @@ def normalize_demarne_categorie(
             # mais marquer quand même la découpe comme FILET
             result["categorie"] = cat_upper
             result["decoupe_from_categorie"] = "FILET"
+
+    # 2. Cas spécial: catégories génériques (DOS, AUTRES POISSONS, POISSON PLAT, etc.)
+    # L'espèce est dans la variante, pas dans la catégorie
+    elif cat_upper in DEMARNE_GENERIC_CATEGORIES:
+        species, decoupe = extract_species_from_variante(variante)
+        if species:
+            result["categorie"] = species
+            if decoupe:
+                result["decoupe_from_categorie"] = decoupe
+        else:
+            # Fallback: garder la catégorie originale
+            result["categorie"] = cat_upper
+
     else:
-        # 2. Extraction standard via les patterns DEMARNE_SPECIES_PATTERNS
+        # 3. Extraction standard via les patterns DEMARNE_SPECIES_PATTERNS
         for pattern, species in DEMARNE_SPECIES_PATTERNS:
             if re.search(pattern, cat_upper, re.IGNORECASE):
                 result["categorie"] = species
@@ -853,6 +1017,68 @@ def extract_species_from_name(product_name: str) -> Optional[str]:
     return None
 
 
+def determine_filet_meaning(text: str) -> dict:
+    """
+    Détermine si FILET dans un texte représente une découpe ou une méthode de pêche
+    basé sur sa position relative à l'espèce.
+
+    Règles:
+    - FILET AVANT espèce (ex: "Filet de Bar") → découpe
+    - FILET APRÈS espèce (ex: "Bar de Filet", "Bar filet") → méthode de pêche
+
+    Args:
+        text: Nom de produit ou catégorie à analyser
+
+    Returns:
+        dict avec 'is_decoupe', 'is_methode_peche', 'species'
+    """
+    result = {"is_decoupe": False, "is_methode_peche": False, "species": None}
+
+    if not text:
+        return result
+
+    text_upper = text.upper()
+
+    # Chercher la position de FILET/FILETS
+    filet_match = re.search(r'\bFILETS?\b', text_upper)
+    if not filet_match:
+        return result
+
+    filet_pos = filet_match.start()
+
+    # Chercher la position de l'espèce
+    species_pos = None
+    species_found = None
+    for pattern, species in SPECIES_PATTERNS:
+        match = re.search(pattern, text_upper)
+        if match:
+            species_pos = match.start()
+            species_found = species
+            break
+
+    result["species"] = species_found
+
+    # Si pas d'espèce trouvée
+    if species_pos is None:
+        # Pattern "FILET DE..." sans espèce reconnue → découpe par défaut
+        if re.search(r'\bFILETS?\s+(?:DE\s+|D\')', text_upper):
+            result["is_decoupe"] = True
+        else:
+            # FILET seul ou "FILET DE POISSONS" générique → découpe
+            result["is_decoupe"] = True
+        return result
+
+    # Comparer les positions
+    if filet_pos < species_pos:
+        # FILET avant espèce → découpe (ex: "Filet de Bar")
+        result["is_decoupe"] = True
+    else:
+        # FILET après espèce → méthode de pêche (ex: "Bar de Filet", "Bar filet")
+        result["is_methode_peche"] = True
+
+    return result
+
+
 # =============================================================================
 # FONCTION PRINCIPALE D'HARMONISATION
 # =============================================================================
@@ -899,15 +1125,29 @@ def harmonize_product(product: dict, vendor: str = None) -> dict:
         result["categorie"] = cat_result["categorie"]
 
         # Si on a extrait une découpe depuis la catégorie, l'ajouter
-        if cat_result["decoupe_from_categorie"]:
+        if cat_result.get("decoupe_from_categorie"):
             if not result.get("decoupe") and not result.get("Decoupe"):
                 result["decoupe"] = cat_result["decoupe_from_categorie"]
+
+        # Si on a extrait une méthode de pêche depuis la catégorie (ex: "BAR FILET")
+        if cat_result.get("methode_peche_from_categorie"):
+            if not result.get("methode_peche") and not result.get("Methode_Peche"):
+                result["methode_peche"] = cat_result["methode_peche_from_categorie"]
+            # Si FILET est methode_peche, ne pas le garder comme decoupe
+            # (le parseur peut avoir extrait FILET comme decoupe par erreur)
+            if cat_result["methode_peche_from_categorie"] == "FILET":
+                if result.get("Decoupe") == "FILET":
+                    result["Decoupe"] = None
+                if result.get("decoupe") == "FILET":
+                    result["decoupe"] = None
 
         # --- Methode_Peche ---
         methode_result = normalize_methode_peche(
             result.get("Methode_Peche") or result.get("methode_peche")
         )
-        result["methode_peche"] = methode_result["methode_peche"]
+        # Ne pas écraser si déjà défini par la catégorie
+        if not result.get("methode_peche"):
+            result["methode_peche"] = methode_result["methode_peche"]
 
         # Champs extraits
         if methode_result["type_production"]:
@@ -937,12 +1177,33 @@ def harmonize_product(product: dict, vendor: str = None) -> dict:
             result.get("Qualite") or result.get("qualite")
         )
 
+        # --- Vérifier FILET dans ProductName (si pas déjà géré par la catégorie) ---
+        # Si le ProductName contient "espèce + FILET" (ex: "Bar filet"), c'est une methode_peche
+        if not cat_result.get("methode_peche_from_categorie"):
+            product_name = result.get("ProductName") or result.get("product_name") or ""
+            if product_name and "FILET" in product_name.upper():
+                filet_meaning = determine_filet_meaning(product_name)
+                if filet_meaning["is_methode_peche"]:
+                    if not result.get("methode_peche"):
+                        result["methode_peche"] = "FILET"
+                    # Supprimer FILET de decoupe si le parseur l'a extrait
+                    if result.get("Decoupe") == "FILET":
+                        result["Decoupe"] = None
+                    if result.get("decoupe") == "FILET":
+                        result["decoupe"] = None
+
         # --- Decoupe ---
         # Ne pas écraser si déjà défini par normalize_categorie
         if not result.get("decoupe"):
             result["decoupe"] = normalize_decoupe(
                 result.get("Decoupe") or result.get("decoupe")
             )
+
+        # Détecter le mot-clé "Decoupe"/"Découpe" dans le nom du produit
+        if not result.get("decoupe"):
+            product_name = result.get("ProductName") or result.get("product_name") or ""
+            if product_name and re.search(r'\bD[EÉ]COUPE\b', product_name.upper()):
+                result["decoupe"] = "DECOUPE"
 
         # --- Calibre ---
         result["calibre"] = normalize_calibre(

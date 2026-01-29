@@ -44,9 +44,29 @@ try:
 except ImportError:
     HARMONIZE_AVAILABLE = False
 
+# Catégories génériques à affiner pour Demarne
+DEMARNE_GENERIC_CATEGORIES = {
+    'DIVERS',
+    'CEPHALOPODES',
+    'COQUILLAGES',
+    'COQUILLAGES CUITS',
+    'COQUILLAGES VIVANTS',
+    'CRUSTACES',
+    'CRUSTACES DIVERS',
+    'CRUSTACÉS CUITS',
+    'CRUSTACÉS DIVERS',
+    'AUTRES POISSONS',
+    'FILETS POISSON BLANC',
+    'FILETS POISSON BLEU',
+    'POISSON DE ROCHE',
+    'POISSON ENTIER',
+    'POISSON PLAT',
+    'PETIT POISSON',
+}
+
 # Import de sanitize_for_json depuis parsers.utils
 try:
-    from parsers.utils import sanitize_for_json
+    from parsers.utils import sanitize_for_json, refine_generic_category
 except ImportError:
     def sanitize_for_json(df: pd.DataFrame) -> list[dict]:
         """Fallback si parsers.utils n'existe pas."""
@@ -186,7 +206,8 @@ def parse_demarne_fishing_method(
         ("IKE", "IKEJIME"),
         ("PB", "PB"),  # Petite Bouche / Pêche à la Bolinche
         ("CASIER", "CASIER"),
-        ("FILET", None),  # Exclure FILET car c'est une découpe, pas une méthode
+        # FILET est géré contextuellement par harmonize.py selon sa position
+        # relative à l'espèce (decoupe si avant, methode_peche si après)
         ("CHALUT", "CHALUT"),
         ("PALANGRE", "PALANGRE"),
         ("FILEYEUR", "FILEYEUR"),
@@ -496,6 +517,14 @@ def parse(file_input, harmonize: bool = False, date_fallback: str = None, **kwar
     # Extraction des données brutes
     df = extract_data_from_excel(file_input, date_fallback=date_fallback)
     products = sanitize_for_json(df)
+
+    # Affinage des catégories génériques vers espèces spécifiques
+    for product in products:
+        product["Categorie"] = refine_generic_category(
+            product.get("Categorie"),
+            product.get("ProductName"),
+            DEMARNE_GENERIC_CATEGORIES
+        )
 
     # Application optionnelle de l'harmonisation
     if harmonize:

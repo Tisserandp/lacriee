@@ -36,7 +36,19 @@ import fitz  # PyMuPDF
 import numpy as np
 import pandas as pd
 
+from parsers.utils import refine_generic_category
+
 logger = logging.getLogger(__name__)
+
+# Catégories génériques à affiner pour Hennequin
+HENNEQUIN_GENERIC_CATEGORIES = {
+    'COUPE "FAIT MAISON"',
+    'COUPE FAIT MAISON',
+    'COUPE " FAIT MAISON "',  # Variante avec espaces
+    'CUISSON',
+    'VIVIERS',
+    'COQUILLAGES',
+}
 
 # Import conditionnel pour éviter les erreurs si harmonize.py n'existe pas encore
 try:
@@ -513,6 +525,14 @@ def parse(file_bytes: bytes, harmonize: bool = False, **kwargs) -> list[dict]:
     """
     # Extraction des données brutes
     products = extract_data_from_pdf(file_bytes)
+
+    # Affinage des catégories génériques vers espèces spécifiques
+    for product in products:
+        product["Categorie"] = refine_generic_category(
+            product.get("Categorie"),
+            product.get("ProductName"),
+            HENNEQUIN_GENERIC_CATEGORIES
+        )
 
     # Application optionnelle de l'harmonisation
     if harmonize:

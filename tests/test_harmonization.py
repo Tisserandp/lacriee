@@ -19,6 +19,7 @@ from services.harmonize import (
     normalize_demarne_variante,
     normalize_demarne_label,
     clean_demarne_origine,
+    determine_filet_meaning,
 )
 
 
@@ -298,6 +299,57 @@ def test_demarne_origine_cleaning():
         print(f"  {status} '{origine}' → '{result}' (attendu: '{expected}')")
 
 
+def test_demarne_generic_category_extraction():
+    """Test extraction d'espèce depuis catégories génériques."""
+    print("\n=== Test Demarne Generic Categories ===")
+
+    tests = [
+        # (Categorie, Variante, espèce_attendue, découpe_attendue)
+        # DOS
+        ("DOS", "Dos de cabillaud", "CABILLAUD", "DOS"),
+        ("DOS", "Dos de lieu noir", "LIEU NOIR", "DOS"),
+        ("DOS", "Dos d'églefin", "EGLEFIN", "DOS"),
+        ("DOS", "Dos de sébaste", "SEBASTE", "DOS"),
+        # AUTRES POISSONS
+        ("AUTRES POISSONS", "Dos de COLIN Alaska S", "COLIN", "DOS"),
+        ("AUTRES POISSONS", "Filet de BAR A/P", "BAR", "FILET"),
+        # POISSON PLAT - variante simple
+        ("POISSON PLAT", "Sole", "SOLE", None),
+        ("POISSON PLAT", "Turbot", "TURBOT", None),
+        ("POISSON PLAT", "Barbue", "BARBUE", None),
+        # POISSON ENTIER
+        ("POISSON ENTIER", "Cabillaud VDK", "CABILLAUD", None),
+        ("POISSON ENTIER", "Lieu jaune", "LIEU JAUNE", None),
+        ("POISSON ENTIER", "Merlu", "MERLU", None),
+        # PETIT POISSON
+        ("PETIT POISSON", "Sardine", "SARDINE", None),
+        ("PETIT POISSON", "Maquereau", "MAQUEREAU", None),
+        ("PETIT POISSON", "Chinchard", "CHINCHARD", None),
+        # POISSON DE ROCHE
+        ("POISSON DE ROCHE", "Grondin", "GRONDIN", None),
+        ("POISSON DE ROCHE", "Rouget Barbet", "ROUGET BARBET", None),
+        # POISSONS EXOTIQUES - mix
+        ("POISSONS EXOTIQUES", "Pagre", "PAGRE", None),
+        ("POISSONS EXOTIQUES", "Barracuda", "BARRACUDA", None),
+        ("POISSONS EXOTIQUES", "Filet de PERCHE du Nil", "PERCHE DU NIL", "FILET"),
+        # POISSONS D'EAU DOUCE
+        ("POISSONS D'EAU DOUCE", "Brochet", "BROCHET", None),
+        ("POISSONS D'EAU DOUCE", "Sandre", "SANDRE", None),
+        ("POISSONS D'EAU DOUCE", "Filet de sandre", "SANDRE", "FILET"),
+    ]
+
+    for cat, var, expected_species, expected_decoupe in tests:
+        result = normalize_demarne_categorie(cat, variante=var)
+        species_match = result["categorie"] == expected_species
+        decoupe_match = result.get("decoupe_from_categorie") == expected_decoupe
+        status = "✓" if species_match and decoupe_match else "✗"
+        print(f"  {status} '{cat}' + '{var}' → categorie='{result['categorie']}', decoupe='{result.get('decoupe_from_categorie')}'")
+        if not species_match:
+            print(f"      Attendu categorie: '{expected_species}'")
+        if not decoupe_match:
+            print(f"      Attendu decoupe: '{expected_decoupe}'")
+
+
 def test_demarne_full_product_harmonization():
     """Test d'harmonisation complète d'un produit Demarne."""
     print("\n=== Test Harmonisation Produit Demarne Complet ===")
@@ -483,6 +535,95 @@ def show_sample_harmonized_products():
         print(f"  Erreur: {e}")
 
 
+def test_filet_position_detection():
+    """Test détection positionnelle de FILET (découpe vs méthode de pêche)."""
+    print("\n=== Test Position FILET ===")
+
+    # Tests de la fonction determine_filet_meaning()
+    tests_meaning = [
+        # (texte, is_decoupe, is_methode_peche, species)
+        ("FILET DE BAR", True, False, "BAR"),
+        ("BAR DE FILET", False, True, "BAR"),
+        ("BAR FILET", False, True, "BAR"),
+        ("FILET CABILLAUD", True, False, "CABILLAUD"),
+        ("SOLE FILET", False, True, "SOLE"),
+        ("FILET DE POISSONS", True, False, None),
+        ("FILETS", True, False, None),
+    ]
+
+    for text, exp_decoupe, exp_methode, exp_species in tests_meaning:
+        result = determine_filet_meaning(text)
+        ok = (result["is_decoupe"] == exp_decoupe and
+              result["is_methode_peche"] == exp_methode and
+              result["species"] == exp_species)
+        status = "✓" if ok else "✗"
+        print(f"  {status} '{text}' → decoupe={result['is_decoupe']}, methode={result['is_methode_peche']}, species={result['species']}")
+        if not ok:
+            print(f"      Attendu: decoupe={exp_decoupe}, methode={exp_methode}, species={exp_species}")
+
+    # Tests de normalize_categorie avec position FILET
+    print("\n  --- Tests normalize_categorie avec FILET ---")
+
+    # FILET avant espèce = découpe
+    result = normalize_categorie("FILET DE BAR", None)
+    assert result.get("decoupe_from_categorie") == "FILET", "FILET DE BAR devrait donner decoupe"
+    assert result.get("methode_peche_from_categorie") is None, "FILET DE BAR ne devrait pas donner methode_peche"
+    print(f"  ✓ 'FILET DE BAR' → decoupe_from_categorie='FILET'")
+
+    # FILET après espèce = méthode de pêche
+    result = normalize_categorie("BAR FILET", None)
+    assert result.get("methode_peche_from_categorie") == "FILET", "BAR FILET devrait donner methode_peche"
+    assert result.get("decoupe_from_categorie") is None, "BAR FILET ne devrait pas donner decoupe"
+    print(f"  ✓ 'BAR FILET' → methode_peche_from_categorie='FILET'")
+
+    # Test harmonisation complète
+    print("\n  --- Tests harmonize_products avec FILET ---")
+
+    # Cas 1: FILET avant espèce
+    p1 = [{"ProductName": "FILET DE BAR", "Categorie": "FILET"}]
+    r1 = harmonize_products(p1, "Test")
+    assert r1[0].get("decoupe") == "FILET", "decoupe devrait être FILET"
+    assert r1[0].get("methode_peche") is None, "methode_peche devrait être None"
+    print(f"  ✓ 'FILET DE BAR' harmonisé → decoupe='FILET', methode_peche=None")
+
+    # Cas 2: FILET après espèce
+    p2 = [{"ProductName": "BAR DE FILET", "Categorie": "BAR FILET"}]
+    r2 = harmonize_products(p2, "Test")
+    assert r2[0].get("methode_peche") == "FILET", "methode_peche devrait être FILET"
+    assert r2[0].get("decoupe") is None, "decoupe devrait être None"
+    print(f"  ✓ 'BAR FILET' harmonisé → methode_peche='FILET', decoupe=None")
+
+    # Cas 3: SOLE FILET
+    p3 = [{"ProductName": "SOLE", "Categorie": "SOLE FILET"}]
+    r3 = harmonize_products(p3, "Test")
+    assert r3[0].get("methode_peche") == "FILET", "methode_peche devrait être FILET"
+    assert r3[0].get("categorie") == "SOLE", "categorie devrait être SOLE"
+    print(f"  ✓ 'SOLE FILET' harmonisé → methode_peche='FILET', categorie='SOLE'")
+
+
+def test_decoupe_keyword_detection():
+    """Test détection du mot-clé Decoupe/Découpe."""
+    print("\n=== Test Mot-clé Decoupe/Découpe ===")
+
+    tests = [
+        # (ProductName, Categorie, expected_decoupe)
+        ("SAUMON DECOUPE", "SAUMON", "DECOUPE"),
+        ("CABILLAUD DÉCOUPE", "POISSON", "DECOUPE"),
+        ("Saumon découpe frais", "SAUMON", "DECOUPE"),
+        # Cas où decoupe est déjà défini (ne devrait pas être écrasé)
+        ("FILET DE BAR DECOUPE", "FILET", "FILET"),  # FILET prioritaire car dans catégorie
+    ]
+
+    for product_name, categorie, expected in tests:
+        product = {"ProductName": product_name, "Categorie": categorie}
+        result = harmonize_products([product], "Test")[0]
+        actual = result.get("decoupe")
+        status = "✓" if actual == expected else "✗"
+        print(f"  {status} '{product_name}' → decoupe='{actual}' (attendu: '{expected}')")
+        if actual != expected:
+            print(f"      Erreur: attendu '{expected}', obtenu '{actual}'")
+
+
 if __name__ == "__main__":
     print("=" * 70)
     print("TESTS D'HARMONISATION DES ATTRIBUTS")
@@ -497,11 +638,16 @@ if __name__ == "__main__":
     test_calibre_normalization()
     test_full_product_harmonization()
 
+    # Tests FILET position et Decoupe keyword
+    test_filet_position_detection()
+    test_decoupe_keyword_detection()
+
     # Tests unitaires Demarne
     test_demarne_categorie_mapping()
     test_demarne_variante_mapping()
     test_demarne_label_mapping()
     test_demarne_origine_cleaning()
+    test_demarne_generic_category_extraction()
     test_demarne_full_product_harmonization()
 
     # Tests avec vrais parseurs

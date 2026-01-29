@@ -31,10 +31,13 @@ import pandas as pd
 import numpy as np
 import re
 from datetime import date
-from parsers.utils import sanitize_for_json
+from parsers.utils import sanitize_for_json, refine_generic_category
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Catégories génériques à affiner pour Laurent Daniel
+LAURENT_DANIEL_GENERIC_CATEGORIES = {'COQUILLAGES', 'DIVERS', 'FILET'}
 
 # Import conditionnel pour éviter les erreurs si harmonize.py n'existe pas encore
 try:
@@ -436,6 +439,17 @@ def extract_data_from_pdf(file_bytes: bytes) -> list[dict]:
         mask = df_final['produit_lower'].str.startswith(prefix)
         df_final.loc[mask, 'categorie'] = cat
     df_final['Categorie'] = df_final['categorie'].str.upper()
+
+    # Affinage des catégories génériques vers espèces spécifiques
+    df_final['Categorie'] = df_final.apply(
+        lambda row: refine_generic_category(
+            row['Categorie'],
+            row['produit'],
+            LAURENT_DANIEL_GENERIC_CATEGORIES
+        ),
+        axis=1
+    )
+
     df_final = df_final.drop(columns=['produit_lower'])
     df_final['Code_Provider'] = 'LD_' + df_final['produit'].str.replace(" ", "") + "_" + df_final["qualite"]
     df_final['Date'] = date_str

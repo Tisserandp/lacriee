@@ -112,6 +112,25 @@ gcloud run services logs tail parsers --project=lacriee --region=europe-west1
 
 **Documentation complète**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
+## Analyse Qualite des Donnees
+
+Endpoints `/analysis/*` pour inspecter les donnees dans AllPrices et ameliorer les parseurs.
+
+```bash
+# Couverture des champs par vendor
+curl "http://localhost:8080/analysis/coverage?vendor=Demarne" -H "X-API-Key: $KEY"
+
+# Distribution des valeurs d'un champ
+curl "http://localhost:8080/analysis/values/categorie?vendor=Demarne" -H "X-API-Key: $KEY"
+
+# Comparaison entre vendors
+curl "http://localhost:8080/analysis/compare-vendors" -H "X-API-Key: $KEY"
+```
+
+**Important**: Filtrer par date recente (`date_from=2026-01-26`) car l'historique a ete charge avec harmonisation minimale.
+
+**Documentation complete**: [docs/QUALITY_WORKFLOW.md](docs/QUALITY_WORKFLOW.md)
+
 ## Documentation Technique
 
 Voir [docs/CLAUDE.md](docs/CLAUDE.md) pour:

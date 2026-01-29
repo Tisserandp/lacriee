@@ -28,7 +28,7 @@ import fitz
 import pandas as pd
 import re
 import logging
-from parsers.utils import sanitize_for_json
+from parsers.utils import sanitize_for_json, refine_generic_category
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,15 @@ try:
     HARMONIZE_AVAILABLE = True
 except ImportError:
     HARMONIZE_AVAILABLE = False
+
+# Catégories génériques à affiner pour VVQM
+VVQM_GENERIC_CATEGORIES = {
+    'POISSON',
+    'COQUILLAGES',
+    'CRUSTACES',
+    'CRUSTACES BRETONS',
+    'FILETS',
+}
 
 
 def parse_vvqm_product_name(produit: str) -> dict:
@@ -428,6 +437,14 @@ def parse(file_bytes: bytes, harmonize: bool = False, **kwargs) -> list[dict]:
     # Extraction des données brutes
     df = extract_data_from_pdf(file_bytes)
     products = sanitize_for_json(df)
+
+    # Affinage des catégories génériques vers espèces spécifiques
+    for product in products:
+        product["Categorie"] = refine_generic_category(
+            product.get("Categorie"),
+            product.get("ProductName"),
+            VVQM_GENERIC_CATEGORIES
+        )
 
     # Application optionnelle de l'harmonisation
     if harmonize:

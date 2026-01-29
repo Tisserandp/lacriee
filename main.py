@@ -481,3 +481,182 @@ async def get_job_status(job_id: str):
         },
         "error_message": job.get("error_message")
     }
+
+
+# ============================================================
+# Endpoints d'Analyse Qualite AllPrices
+# ============================================================
+from services.data_query import (
+    query_all_prices,
+    get_distinct_values,
+    count_by_field,
+    get_total_count,
+    get_date_range
+)
+from services.quality_analysis import (
+    analyze_field_coverage,
+    find_null_values_sample,
+    get_quality_summary,
+    find_potential_harmonization_issues,
+    compare_vendors
+)
+
+
+@app.get("/analysis/query")
+async def analysis_query(
+    vendor: Optional[str] = Query(None, description="Filtrer par vendor"),
+    date_from: Optional[str] = Query(None, description="Date debut (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="Date fin (YYYY-MM-DD)"),
+    categorie: Optional[str] = Query(None, description="Filtrer par categorie"),
+    limit: int = Query(100, le=1000, description="Nombre max de lignes"),
+    offset: int = Query(0, description="Offset pour pagination"),
+    x_api_key: str = Header(default=None)
+):
+    """
+    Requete flexible sur AllPrices.
+    Permet d'inspecter les donnees produites par les parseurs.
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    try:
+        data = query_all_prices(
+            vendor=vendor,
+            date_from=date_from,
+            date_to=date_to,
+            categorie=categorie,
+            limit=limit,
+            offset=offset
+        )
+        return {
+            "status": "success",
+            "count": len(data),
+            "data": data
+        }
+    except Exception as e:
+        logger.error(f"Erreur analysis/query: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/analysis/coverage")
+async def analysis_coverage(
+    vendor: Optional[str] = Query(None, description="Filtrer par vendor"),
+    x_api_key: str = Header(default=None)
+):
+    """
+    Retourne le taux de remplissage par champ harmonise.
+    Utile pour identifier les champs peu remplis a ameliorer.
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    try:
+        coverage = analyze_field_coverage(vendor=vendor)
+        total = get_total_count(vendor=vendor)
+        return {
+            "status": "success",
+            "vendor": vendor or "all",
+            "total_records": total,
+            "field_coverage": coverage
+        }
+    except Exception as e:
+        logger.error(f"Erreur analysis/coverage: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/analysis/values/{field}")
+async def analysis_field_values(
+    field: str,
+    vendor: Optional[str] = Query(None, description="Filtrer par vendor"),
+    limit: int = Query(50, le=100, description="Nombre max de valeurs"),
+    x_api_key: str = Header(default=None)
+):
+    """
+    Liste les valeurs distinctes d'un champ avec leur frequence.
+    Utile pour voir la distribution et identifier les valeurs a harmoniser.
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    try:
+        values = count_by_field(field=field, vendor=vendor, limit=limit)
+        return {
+            "status": "success",
+            "field": field,
+            "vendor": vendor or "all",
+            "values": values
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Erreur analysis/values/{field}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/analysis/summary/{vendor}")
+async def analysis_summary(
+    vendor: str,
+    x_api_key: str = Header(default=None)
+):
+    """
+    Resume qualite complet pour un vendor.
+    Inclut: total, dates, couverture, top categories, champs faibles.
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    try:
+        summary = get_quality_summary(vendor=vendor)
+        return {
+            "status": "success",
+            **summary
+        }
+    except Exception as e:
+        logger.error(f"Erreur analysis/summary/{vendor}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/analysis/compare-vendors")
+async def analysis_compare_vendors(
+    x_api_key: str = Header(default=None)
+):
+    """
+    Compare les statistiques entre tous les vendors.
+    Utile pour voir quel parseur produit la meilleure qualite.
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    try:
+        comparison = compare_vendors()
+        return {
+            "status": "success",
+            "vendors": comparison
+        }
+    except Exception as e:
+        logger.error(f"Erreur analysis/compare-vendors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/analysis/issues")
+async def analysis_issues(
+    vendor: Optional[str] = Query(None, description="Filtrer par vendor"),
+    x_api_key: str = Header(default=None)
+):
+    """
+    Identifie les valeurs potentiellement problematiques.
+    Cherche: accents, minuscules, valeurs trop longues.
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    try:
+        issues = find_potential_harmonization_issues(vendor=vendor)
+        return {
+            "status": "success",
+            "vendor": vendor or "all",
+            "issues": issues
+        }
+    except Exception as e:
+        logger.error(f"Erreur analysis/issues: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
