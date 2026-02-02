@@ -26,22 +26,28 @@ Utiliser la méthode Cloud Build ci-dessous.
 
 Cette méthode évite les problèmes de timestamps et de fichiers problématiques.
 
+**Pré-requis**: Fichier `.env.local` à la racine avec `PDF_PARSER_API_KEY=xxx` (non commité sur git).
+
 ```bash
-# 1. Créer un répertoire temporaire propre
+# 1. Charger la clé API depuis .env.local (OBLIGATOIRE)
+cd "c:/Users/Tisse/OneDrive/Tisserandp/LaCriee"
+source .env.local
+echo "API_KEY chargée: ${PDF_PARSER_API_KEY:0:5}..."
+
+# 2. Créer un répertoire temporaire propre
 rm -rf /tmp/lacriee_deploy && mkdir -p /tmp/lacriee_deploy
 
-# 2. Copier uniquement les fichiers nécessaires (PAS de .git, secrets, config/, Samples/)
-cd "c:/Users/Tisse/OneDrive/Tisserandp/LaCriee"
+# 3. Copier uniquement les fichiers nécessaires (PAS de .git, secrets, config/, Samples/)
 cp -r main.py requirements.txt Dockerfile config.py parsers/ services/ models/ utils/ scripts/ static/ templates/ /tmp/lacriee_deploy/
 
-# 3. Créer le dossier logs et fixer les timestamps
+# 4. Créer le dossier logs et fixer les timestamps
 mkdir -p /tmp/lacriee_deploy/logs
 find /tmp/lacriee_deploy -type f -exec touch {} \;
 
-# 4. Build avec Cloud Build
+# 5. Build avec Cloud Build
 gcloud builds submit /tmp/lacriee_deploy --tag gcr.io/lacriee/parsers --project=lacriee
 
-# 5. Déployer l'image
+# 6. Déployer l'image AVEC la clé API
 gcloud run deploy parsers \
   --image gcr.io/lacriee/parsers \
   --project=lacriee \
@@ -49,7 +55,7 @@ gcloud run deploy parsers \
   --allow-unauthenticated \
   --memory=1Gi \
   --timeout=300s \
-  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
+  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives,PDF_PARSER_API_KEY=${PDF_PARSER_API_KEY}"
 ```
 
 ### Méthode 2: --source (Peut échouer)
@@ -331,9 +337,10 @@ gcloud run services delete parsers \
 ## Historique des Déploiements
 
 - **2026-02-02**: Ajout endpoints job file/replay
-  - Révision `parsers-00014-qnz`
+  - Révision `parsers-00015-5pf`
   - Nouveaux endpoints: `/jobs/{job_id}/file`, `/jobs/{job_id}/replay`
   - Fonctions storage: `download_file()`, `generate_signed_url()`
+  - Fix: PDF_PARSER_API_KEY ajoutée aux env vars
 
 - **2026-01-23**: Déploiement avec clé API en variable d'environnement
   - Révision `parsers-00007-78z`
