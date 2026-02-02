@@ -127,6 +127,7 @@ async def test_parser_page(request: Request):
 # Import Services (nouvelle architecture ELT)
 # ============================================================
 from services.import_service import ImportService
+from services.storage import download_file
 
 # Initialiser les services d'import avec les parsers autonomes
 # Note: Vendors en majuscule pour cohérence avec les données harmonisées
@@ -135,6 +136,15 @@ vvqm_service = ImportService("VVQM", vvqm.parse)
 demarne_service = ImportService("Demarne", demarne.parse)
 hennequin_service = ImportService("Hennequin", hennequin.parse)
 audierne_service = ImportService("Audierne", audierne.parse)
+
+# Mapping vendor -> parser pour replay de jobs
+VENDOR_PARSERS = {
+    "Laurent Daniel": laurent_daniel.parse,
+    "VVQM": vvqm.parse,
+    "Demarne": demarne.parse,
+    "Hennequin": hennequin.parse,
+    "Audierne": audierne.parse,
+}
 
 
 ########################################################################################################################
@@ -481,6 +491,98 @@ async def get_job_status(job_id: str):
         },
         "error_message": job.get("error_message")
     }
+
+
+@app.get("/jobs/{job_id}/file")
+async def get_job_file_url(job_id: str, x_api_key: str = Header(default=None), expiration: int = 60):
+    """
+    Récupère l'URL du fichier source d'un job.
+
+    Args:
+        job_id: Identifiant du job
+        expiration: Durée de validité de l'URL en minutes (défaut: 60)
+
+    Returns:
+        job_id, filename, vendor, gcs_url (interne), download_url (signée), created_at, expires_in_minutes
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    from services.bigquery import get_job_status
+    from services.storage import generate_signed_url
+
+    job = get_job_status(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    gcs_url = job.get("gcs_url")
+    download_url = None
+    url_error = None
+
+    if gcs_url:
+        try:
+            download_url = generate_signed_url(gcs_url, expiration_minutes=expiration)
+        except Exception as e:
+            url_error = str(e)
+            logger.warning(f"Impossible de générer l'URL signée pour {gcs_url}: {e}")
+
+    return {
+        "job_id": job_id,
+        "filename": job.get("filename"),
+        "vendor": job.get("vendor"),
+        "gcs_url": gcs_url,
+        "download_url": download_url,
+        "created_at": job.get("created_at"),
+        "expires_in_minutes": expiration if download_url else None,
+        "url_error": url_error
+    }
+
+
+@app.post("/jobs/{job_id}/replay")
+async def replay_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    x_api_key: str = Header(default=None)
+):
+    """
+    Rejoue le parsing d'un job existant avec le parseur actuel.
+
+    Télécharge le fichier depuis GCS, détecte le vendor,
+    et relance le parsing complet (crée un nouveau job).
+
+    Returns:
+        Nouveau job_id et check_status_url
+    """
+    if x_api_key != get_api_key():
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    from services.bigquery import get_job_status
+
+    # 1. Récupérer les infos du job original
+    original_job = get_job_status(job_id)
+    if not original_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    vendor = original_job.get("vendor")
+    gcs_url = original_job.get("gcs_url")
+    filename = original_job.get("filename")
+
+    # 2. Vérifier que le vendor est supporté
+    if vendor not in VENDOR_PARSERS:
+        raise HTTPException(status_code=400, detail=f"Unknown vendor: {vendor}")
+
+    # 3. Télécharger le fichier depuis GCS
+    try:
+        file_bytes = download_file(gcs_url)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"File not found in GCS: {gcs_url}")
+    except Exception as e:
+        logger.error(f"Erreur téléchargement GCS pour job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
+
+    # 4. Utiliser le service approprié pour relancer le parsing
+    service = ImportService(vendor, VENDOR_PARSERS[vendor])
+    return service.handle_import(filename, file_bytes, background_tasks)
 
 
 # ============================================================

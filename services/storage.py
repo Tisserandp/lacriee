@@ -2,9 +2,11 @@
 Service d'archivage GCS pour les fichiers uploadés.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from google.cloud import storage
 from google.oauth2 import service_account
+import google.auth
+import google.auth.transport.requests
 import json
 import os
 
@@ -68,6 +70,114 @@ def archive_file(vendor: str, filename: str, file_bytes: bytes) -> str:
     
     gcs_url = f"gs://{bucket_name}/{blob_path}"
     logger.info(f"Fichier archivé: {gcs_url}")
-    
+
     return gcs_url
+
+
+def download_file(gcs_url: str) -> bytes:
+    """
+    Télécharge un fichier depuis GCS.
+
+    Args:
+        gcs_url: URL complète gs://bucket/path/to/file
+
+    Returns:
+        Contenu du fichier en bytes
+
+    Raises:
+        Exception: Si le fichier n'existe pas ou erreur de téléchargement
+    """
+    client = get_gcs_client()
+
+    # Parse gs://bucket/path -> bucket, path
+    if not gcs_url.startswith("gs://"):
+        raise ValueError(f"URL GCS invalide: {gcs_url}")
+
+    parts = gcs_url.replace("gs://", "").split("/", 1)
+    if len(parts) != 2:
+        raise ValueError(f"URL GCS invalide: {gcs_url}")
+
+    bucket_name = parts[0]
+    blob_path = parts[1]
+
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_path)
+
+    if not blob.exists():
+        raise FileNotFoundError(f"Fichier non trouvé dans GCS: {gcs_url}")
+
+    file_bytes = blob.download_as_bytes()
+    logger.info(f"Fichier téléchargé: {gcs_url} ({len(file_bytes)} bytes)")
+
+    return file_bytes
+
+
+def generate_signed_url(gcs_url: str, expiration_minutes: int = 60) -> str:
+    """
+    Génère une URL signée pour accès temporaire à un fichier GCS.
+
+    Args:
+        gcs_url: URL complète gs://bucket/path/to/file
+        expiration_minutes: Durée de validité en minutes (défaut: 60)
+
+    Returns:
+        URL signée accessible publiquement
+
+    Raises:
+        ValueError: Si l'URL GCS est invalide
+        FileNotFoundError: Si le fichier n'existe pas
+    """
+    if not gcs_url.startswith("gs://"):
+        raise ValueError(f"URL GCS invalide: {gcs_url}")
+
+    parts = gcs_url.replace("gs://", "").split("/", 1)
+    if len(parts) != 2:
+        raise ValueError(f"URL GCS invalide: {gcs_url}")
+
+    bucket_name = parts[0]
+    blob_path = parts[1]
+
+    # Vérifier si on a un fichier de clé de service account
+    sa_key_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+    if sa_key_file and os.path.exists(sa_key_file):
+        # Avec un fichier de clé SA, on peut signer directement
+        credentials = service_account.Credentials.from_service_account_file(sa_key_file)
+        client = storage.Client(credentials=credentials)
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+
+        if not blob.exists():
+            raise FileNotFoundError(f"Fichier non trouvé dans GCS: {gcs_url}")
+
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=expiration_minutes),
+            method="GET",
+        )
+    else:
+        # Cloud Run: utiliser IAM signing avec les credentials par défaut
+        credentials, project = google.auth.default()
+
+        if hasattr(credentials, 'refresh'):
+            request = google.auth.transport.requests.Request()
+            credentials.refresh(request)
+
+        client = storage.Client(credentials=credentials)
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+
+        if not blob.exists():
+            raise FileNotFoundError(f"Fichier non trouvé dans GCS: {gcs_url}")
+
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=expiration_minutes),
+            method="GET",
+            service_account_email=credentials.service_account_email,
+            access_token=credentials.token,
+        )
+
+    logger.info(f"URL signée générée pour {gcs_url} (expire dans {expiration_minutes} min)")
+    return signed_url
 

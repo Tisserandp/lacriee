@@ -67,6 +67,24 @@ Le service utilise le compte de service par défaut:
 Permissions nécessaires:
 - `roles/bigquery.dataEditor` - Accès au dataset BigQuery
 - `roles/storage.objectAdmin` - Archivage dans GCS
+- `roles/iam.serviceAccountTokenCreator` - Génération d'URLs signées (sur lui-même)
+
+### URLs Signées (endpoint /jobs/{job_id}/file)
+
+Pour permettre au service de générer des URLs signées sur Cloud Run, le service account doit pouvoir signer ses propres tokens:
+
+```bash
+# Récupérer le service account
+SA=$(gcloud run services describe parsers --project=lacriee --region=europe-west1 --format="value(spec.template.spec.serviceAccountName)")
+
+# Ajouter le rôle Service Account Token Creator
+gcloud iam service-accounts add-iam-policy-binding $SA \
+  --member="serviceAccount:$SA" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --project=lacriee
+```
+
+**En local**: Utiliser un fichier de clé de service account (voir docker-compose.yml)
 
 ## Endpoints Disponibles
 
@@ -78,6 +96,8 @@ Tous les endpoints nécessitent le header `X-API-Key: {valeur du secret}`:
 - `POST /parseHennequinPDF` - Hennequin PDF
 - `POST /parseAudiernepdf` - Audierne PDF
 - `GET /jobs/{job_id}` - Vérifier statut d'un job
+- `GET /jobs/{job_id}/file` - URL signée pour télécharger le fichier source
+- `POST /jobs/{job_id}/replay` - Rejouer un job avec le parseur actuel
 - `GET /test-parser` - Interface de test HTML
 
 ## Gestion du Service

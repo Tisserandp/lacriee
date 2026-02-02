@@ -52,6 +52,18 @@ POST /parse{Vendor} (fichier)
 - **Valeurs**: MAJUSCULES sans accents (`VIDE`, `PELE`, `SAINT PIERRE`)
 - **keyDate**: Clé unique par parseur (`{Vendor}_{Code}_{Date}`) sauf pour le parseur Demarne ou c'est simplement (`{Code}_{Date}`)
 
+## Configuration Docker Local
+
+Le fichier `docker-compose.yml` monte le service account pour les credentials GCP:
+```yaml
+volumes:
+  - ./config/lacrieeparseur.json:/google_credentials/service_account.json:ro
+environment:
+  - GOOGLE_APPLICATION_CREDENTIALS=/google_credentials/service_account.json
+```
+
+**Important**: Le fichier `config/lacrieeparseur.json` contient la clé privée du service account. Ne jamais commiter ce fichier.
+
 ## Commandes Fréquentes
 
 ```bash
@@ -87,6 +99,21 @@ docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/load_samples.py
 ```json
 {"status": "completed", "metrics": {"rows_extracted": 96, "rows_inserted_prod": 96}}
 ```
+
+**Téléchargement fichier source** (`GET /jobs/{job_id}/file?expiration=60`):
+```json
+{
+  "job_id": "...",
+  "filename": "fichier.pdf",
+  "vendor": "VVQM",
+  "gcs_url": "gs://lacriee-archives/VVQM/2026-01-30/fichier.pdf",
+  "download_url": "https://storage.googleapis.com/lacriee-archives/...?X-Goog-Signature=...",
+  "created_at": "2026-01-30T06:40:12.742644+00:00",
+  "expires_in_minutes": 60
+}
+```
+- `download_url`: URL signée temporaire pour télécharger le fichier
+- `expiration`: Durée de validité en minutes (défaut: 60)
 
 ## Déploiement Cloud Run
 

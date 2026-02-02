@@ -210,6 +210,41 @@ def update_job_status(
             # Le job sera marqué comme failed plus tard si nécessaire
 
 
+def get_job_status(job_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Récupère les infos d'un job depuis ImportJobs.
+
+    Args:
+        job_id: UUID du job
+
+    Returns:
+        Dictionnaire avec les infos du job, ou None si non trouvé
+    """
+    client = get_bigquery_client()
+
+    query = f"""
+        SELECT *
+        FROM `{client.project}.{DATASET_ID}.ImportJobs`
+        WHERE job_id = @job_id
+        LIMIT 1
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("job_id", "STRING", job_id)
+        ]
+    )
+
+    try:
+        results = client.query(query, job_config=job_config).result()
+        for row in results:
+            return dict(row)
+        return None
+    except Exception as e:
+        logger.error(f"Erreur récupération job {job_id}: {e}")
+        return None
+
+
 def load_raw_to_staging(job_id: str, vendor: str, raw_data: List[Dict[str, Any]]) -> int:
     """
     Charge les données brutes dans ProvidersPrices_Staging.

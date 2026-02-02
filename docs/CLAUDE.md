@@ -292,7 +292,37 @@ TRIM_E                <- TRIM E
 
 ---
 
-## 8. Tables BigQuery
+## 8. Module Storage (services/storage.py)
+
+### Fonctions disponibles
+
+```python
+from services.storage import (
+    archive_file,          # Archiver un fichier dans GCS
+    download_file,         # Télécharger un fichier depuis GCS
+    generate_signed_url,   # Générer une URL signée temporaire
+)
+```
+
+### generate_signed_url
+
+Génère une URL signée pour accès temporaire à un fichier GCS.
+
+```python
+url = generate_signed_url(
+    gcs_url="gs://lacriee-archives/VVQM/2026-01-30/fichier.pdf",
+    expiration_minutes=60  # défaut: 60
+)
+# Retourne: https://storage.googleapis.com/...?X-Goog-Signature=...
+```
+
+**Comportement:**
+- En local (avec fichier de clé SA): signature directe via la clé privée
+- Sur Cloud Run: signature via IAM API (nécessite rôle `serviceAccountTokenCreator`)
+
+---
+
+## 9. Tables BigQuery
 
 | Table | Description |
 |-------|-------------|
@@ -304,7 +334,7 @@ TRIM_E                <- TRIM E
 
 ---
 
-## 9. Scripts Utilitaires
+## 10. Scripts Utilitaires
 
 ```bash
 # Charger tous les échantillons
@@ -319,7 +349,7 @@ docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/clear_all_price
 
 ---
 
-## 10. Statistiques par Parseur
+## 11. Statistiques par Parseur
 
 | Parseur | Produits (sample) | Attributs spécifiques |
 |---------|-------------------|----------------------|
