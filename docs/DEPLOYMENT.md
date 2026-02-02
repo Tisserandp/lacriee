@@ -19,12 +19,43 @@ Service FastAPI déployé sur Google Cloud Run pour parser des fichiers PDF/Exce
 
 ## Déploiement Rapide
 
-### 1. Depuis le répertoire racine
+**IMPORTANT**: Le déploiement avec `--source .` échoue souvent à cause des timestamps OneDrive.
+Utiliser la méthode Cloud Build ci-dessous.
+
+### Méthode 1: Cloud Build (Recommandée)
+
+Cette méthode évite les problèmes de timestamps et de fichiers problématiques.
+
 ```bash
-cd c:\Users\Tisse\OneDrive\Tisserandp\LaCriee
+# 1. Créer un répertoire temporaire propre
+rm -rf /tmp/lacriee_deploy && mkdir -p /tmp/lacriee_deploy
+
+# 2. Copier uniquement les fichiers nécessaires (PAS de .git, secrets, config/, Samples/)
+cd "c:/Users/Tisse/OneDrive/Tisserandp/LaCriee"
+cp -r main.py requirements.txt Dockerfile config.py parsers/ services/ models/ utils/ scripts/ static/ templates/ /tmp/lacriee_deploy/
+
+# 3. Créer le dossier logs et fixer les timestamps
+mkdir -p /tmp/lacriee_deploy/logs
+find /tmp/lacriee_deploy -type f -exec touch {} \;
+
+# 4. Build avec Cloud Build
+gcloud builds submit /tmp/lacriee_deploy --tag gcr.io/lacriee/parsers --project=lacriee
+
+# 5. Déployer l'image
+gcloud run deploy parsers \
+  --image gcr.io/lacriee/parsers \
+  --project=lacriee \
+  --region=europe-west1 \
+  --allow-unauthenticated \
+  --memory=1Gi \
+  --timeout=300s \
+  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
 ```
 
-### 2. Déployer sur Cloud Run
+### Méthode 2: --source (Peut échouer)
+
+⚠️ Peut échouer avec "ZIP does not support timestamps before 1980" sur OneDrive.
+
 ```bash
 gcloud run deploy parsers \
   --source . \
@@ -33,10 +64,8 @@ gcloud run deploy parsers \
   --allow-unauthenticated \
   --memory=1Gi \
   --timeout=300s \
-  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives,PDF_PARSER_API_KEY=YOUR_API_KEY"
+  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
 ```
-
-Remplacer `YOUR_API_KEY` par la vraie clé API.
 
 ### 3. Récupérer l'URL
 ```bash
@@ -300,6 +329,11 @@ gcloud run services delete parsers \
 - Optimiser le code pour réduire l'utilisation mémoire
 
 ## Historique des Déploiements
+
+- **2026-02-02**: Ajout endpoints job file/replay
+  - Révision `parsers-00014-qnz`
+  - Nouveaux endpoints: `/jobs/{job_id}/file`, `/jobs/{job_id}/replay`
+  - Fonctions storage: `download_file()`, `generate_signed_url()`
 
 - **2026-01-23**: Déploiement avec clé API en variable d'environnement
   - Révision `parsers-00007-78z`

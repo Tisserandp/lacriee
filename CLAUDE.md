@@ -64,6 +64,24 @@ environment:
 
 **Important**: Le fichier `config/lacrieeparseur.json` contient la clé privée du service account. Ne jamais commiter ce fichier.
 
+## IMPORTANT: Toujours utiliser Docker
+
+**Les dépendances Python (PyMuPDF, openpyxl, etc.) ne sont PAS installées localement.**
+Toutes les commandes Python doivent être exécutées via `docker exec`:
+
+```bash
+# CORRECT - via Docker
+docker exec fastapi-pdf-parser python -m pytest tests/test_all_samples.py -v
+
+# INCORRECT - ne marchera pas
+python -m pytest tests/test_all_samples.py -v  # ModuleNotFoundError!
+```
+
+Avant toute commande, s'assurer que le conteneur tourne:
+```bash
+docker-compose up -d
+```
+
 ## Commandes Fréquentes
 
 ```bash
