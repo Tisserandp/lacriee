@@ -394,7 +394,6 @@ def ensure_all_prices_table_exists() -> None:
 
         # Nouveaux champs
         bigquery.SchemaField("type_production", "STRING", mode="NULLABLE", description="SAUVAGE, ELEVAGE"),
-        bigquery.SchemaField("technique_abattage", "STRING", mode="NULLABLE", description="IKEJIME"),
         bigquery.SchemaField("couleur", "STRING", mode="NULLABLE", description="ROUGE, BLANCHE, NOIRE (pour crustacés)"),
 
         # Attributs spécifiques
@@ -494,7 +493,6 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
 
             # Nouveaux champs
             "type_production": item.get("type_production"),
-            "technique_abattage": item.get("technique_abattage"),
             "couleur": item.get("couleur"),
 
             # Spécifiques
@@ -528,7 +526,6 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
         bigquery.SchemaField("origine", "STRING"),
         bigquery.SchemaField("calibre", "STRING"),
         bigquery.SchemaField("type_production", "STRING"),
-        bigquery.SchemaField("technique_abattage", "STRING"),
         bigquery.SchemaField("couleur", "STRING"),
         bigquery.SchemaField("conservation", "STRING"),
         bigquery.SchemaField("trim", "STRING"),
@@ -570,7 +567,6 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
             origine = S.origine,
             calibre = S.calibre,
             type_production = S.type_production,
-            technique_abattage = S.technique_abattage,
             couleur = S.couleur,
             conservation = S.conservation,
             trim = S.trim,
@@ -583,14 +579,14 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
           INSERT (
             key_date, date, vendor, code_provider, product_name, prix,
             categorie, methode_peche, qualite, decoupe, etat, origine, calibre,
-            type_production, technique_abattage, couleur,
+            type_production, couleur,
             conservation, trim, label, variante,
             infos_brutes, created_at, updated_at, last_job_id
           )
           VALUES (
             key_date, date, vendor, code_provider, product_name, prix,
             categorie, methode_peche, qualite, decoupe, etat, origine, calibre,
-            type_production, technique_abattage, couleur,
+            type_production, couleur,
             conservation, trim, label, variante,
             infos_brutes, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), last_job_id
           )

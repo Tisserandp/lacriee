@@ -17,6 +17,35 @@ Service FastAPI déployé sur Google Cloud Run pour parser des fichiers PDF/Exce
 - Accès au projet GCP `lacriee`
 - Secrets configurés dans Secret Manager
 
+### Configuration Initiale: Secret PDF_PARSER_API_KEY
+
+**Important**: Le service nécessite la clé API `PDF_PARSER_API_KEY` pour s'authentifier. Cette clé est lue **automatiquement depuis Secret Manager** en production.
+
+#### 1. Créer le secret (une seule fois)
+
+```bash
+# Créer le secret avec la clé API
+echo -n "ProvidersBEO123" | gcloud secrets create pdf-parser-api-key \
+  --project=lacriee \
+  --replication-policy=automatic \
+  --data-file=-
+```
+
+#### 2. Donner accès au service Cloud Run
+
+```bash
+# Récupérer le numéro de projet
+PROJECT_NUMBER=$(gcloud projects describe lacriee --format="value(projectNumber)")
+
+# Donner accès au service account par défaut
+gcloud secrets add-iam-policy-binding pdf-parser-api-key \
+  --project=lacriee \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+**Note**: Le code dans [config.py](../config.py) lit automatiquement ce secret en production via `get_secret("pdf-parser-api-key")`. En développement local, il utilise la variable d'environnement `PDF_PARSER_API_KEY` du fichier `.env.local`.
+
 ## Déploiement Rapide
 
 **IMPORTANT**: Le déploiement avec `--source .` échoue souvent à cause des timestamps OneDrive.
@@ -26,28 +55,22 @@ Utiliser la méthode Cloud Build ci-dessous.
 
 Cette méthode évite les problèmes de timestamps et de fichiers problématiques.
 
-**Pré-requis**: Fichier `.env.local` à la racine avec `PDF_PARSER_API_KEY=xxx` (non commité sur git).
-
 ```bash
-# 1. Charger la clé API depuis .env.local (OBLIGATOIRE)
+# 1. Créer un répertoire temporaire propre
 cd "c:/Users/Tisse/OneDrive/Tisserandp/LaCriee"
-source .env.local
-echo "API_KEY chargée: ${PDF_PARSER_API_KEY:0:5}..."
-
-# 2. Créer un répertoire temporaire propre
 rm -rf /tmp/lacriee_deploy && mkdir -p /tmp/lacriee_deploy
 
-# 3. Copier uniquement les fichiers nécessaires (PAS de .git, secrets, config/, Samples/)
+# 2. Copier uniquement les fichiers nécessaires (PAS de .git, secrets, config/, Samples/)
 cp -r main.py requirements.txt Dockerfile config.py parsers/ services/ models/ utils/ scripts/ static/ templates/ /tmp/lacriee_deploy/
 
-# 4. Créer le dossier logs et fixer les timestamps
+# 3. Créer le dossier logs et fixer les timestamps
 mkdir -p /tmp/lacriee_deploy/logs
 find /tmp/lacriee_deploy -type f -exec touch {} \;
 
-# 5. Build avec Cloud Build
+# 4. Build avec Cloud Build
 gcloud builds submit /tmp/lacriee_deploy --tag gcr.io/lacriee/parsers --project=lacriee
 
-# 6. Déployer l'image AVEC la clé API
+# 5. Déployer l'image
 gcloud run deploy parsers \
   --image gcr.io/lacriee/parsers \
   --project=lacriee \
@@ -55,12 +78,12 @@ gcloud run deploy parsers \
   --allow-unauthenticated \
   --memory=1Gi \
   --timeout=300s \
-  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives,PDF_PARSER_API_KEY=${PDF_PARSER_API_KEY}"
+  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
 ```
 
-### Méthode 2: --source (Peut échouer)
+**Note**: `PDF_PARSER_API_KEY` n'est plus passée via env vars - elle est lue automatiquement depuis Secret Manager.
 
-⚠️ Peut échouer avec "ZIP does not support timestamps before 1980" sur OneDrive.
+### Méthode 2: --source (Recommandée, plus rapide)
 
 ```bash
 gcloud run deploy parsers \
@@ -72,6 +95,8 @@ gcloud run deploy parsers \
   --timeout=300s \
   --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
 ```
+
+**Note**: Cette méthode fonctionne maintenant correctement avec les nouveaux buildpacks.
 
 ### 3. Récupérer l'URL
 ```bash
@@ -89,10 +114,12 @@ Les variables suivantes sont configurées au déploiement:
 
 - `GCP_PROJECT_ID=lacriee` - Projet GCP
 - `GCS_BUCKET=lacriee-archives` - Bucket d'archivage
-- `PDF_PARSER_API_KEY` - Clé d'authentification pour les endpoints (voir `.env.local` ou Secret Manager)
 - `PORT=8080` - Défini dans le Dockerfile
 
-**Note**: La clé API est passée comme variable d'environnement lors du déploiement.
+**Clé API (`PDF_PARSER_API_KEY`)**:
+- **Production Cloud Run**: Lue automatiquement depuis Secret Manager (`pdf-parser-api-key`)
+- **Dev local**: Lue depuis la variable d'environnement dans `.env.local`
+- Le code dans [config.py:37-49](../config.py#L37-L49) gère cette logique automatiquement
 
 ### Permissions IAM
 
@@ -174,20 +201,22 @@ gcloud run services update-traffic parsers \
 
 ### Mise à Jour des Variables d'Environnement
 
+Pour mettre à jour les variables d'environnement standard:
 ```bash
 gcloud run services update parsers \
-  --update-env-vars="PDF_PARSER_API_KEY=nouvelle_cle" \
+  --update-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives" \
   --project=lacriee \
   --region=europe-west1
 ```
 
-Ou ajouter plusieurs variables:
+**Pour changer l'API key**: Mettre à jour le secret dans Secret Manager (pas de redéploiement nécessaire):
 ```bash
-gcloud run services update parsers \
-  --update-env-vars="PDF_PARSER_API_KEY=nouvelle_cle,GCP_PROJECT_ID=lacriee" \
+echo -n "nouvelle_cle" | gcloud secrets versions add pdf-parser-api-key \
   --project=lacriee \
-  --region=europe-west1
+  --data-file=-
 ```
+
+Le service lira automatiquement la nouvelle version du secret au prochain démarrage d'instance.
 
 ### Scaling Vertical (Plus de Mémoire)
 
@@ -335,6 +364,13 @@ gcloud run services delete parsers \
 - Optimiser le code pour réduire l'utilisation mémoire
 
 ## Historique des Déploiements
+
+- **2026-02-04**: Migration vers Secret Manager pour l'API key
+  - Révision `parsers-00017-qgk`
+  - **Fix critique**: API key maintenant lue depuis Secret Manager (`pdf-parser-api-key`)
+  - Modification [config.py](../config.py): `get_api_key()` avec fallback Secret Manager
+  - Résolution erreur 500 "PDF_PARSER_API_KEY environment variable not set" en production
+  - Plus besoin de passer l'API key via `--set-env-vars` au déploiement
 
 - **2026-02-02**: Ajout endpoints job file/replay
   - Révision `parsers-00015-5pf`

@@ -59,7 +59,7 @@ def test_methode_peche_mapping():
         ("PT BATEAU", {"methode_peche": "PB", "type_production": None, "technique_abattage": None}),
         ("PETIT BATEAU", {"methode_peche": "PB", "type_production": None, "technique_abattage": None}),
         ("LIGNE", {"methode_peche": "LIGNE", "type_production": None, "technique_abattage": None}),
-        ("LIGNE IKEJIME", {"methode_peche": "LIGNE", "type_production": None, "technique_abattage": "IKEJIME"}),
+        ("LIGNE IKEJIME", {"methode_peche": "LIGNE IKEJIME", "type_production": None, "technique_abattage": None}),
         ("SAUVAGE", {"methode_peche": None, "type_production": "SAUVAGE", "technique_abattage": None}),
         ("CHALUT", {"methode_peche": "CHALUT", "type_production": None, "technique_abattage": None}),
     ]
@@ -445,8 +445,8 @@ def test_with_real_parsers():
 
         print(f"\n  VVQM: {len(data_harmonized)} produits")
 
-        ikejime_count = sum(1 for p in data_harmonized if p.get("technique_abattage") == "IKEJIME")
-        print(f"    - technique_abattage=IKEJIME: {ikejime_count} produits")
+        ikejime_count = sum(1 for p in data_harmonized if "IKEJIME" in (p.get("methode_peche") or ""))
+        print(f"    - methode_peche contient IKEJIME: {ikejime_count} produits")
 
     except Exception as e:
         print(f"  ⚠ VVQM: Erreur - {e}")

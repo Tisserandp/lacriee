@@ -36,10 +36,17 @@ def get_secret(secret_id: str) -> str:
 
 def get_api_key() -> str:
     """
-    Récupère la clé API depuis l'environnement.
+    Récupère la clé API depuis l'environnement ou Secret Manager.
+    Priorité: 1) Variable d'environnement (dev local), 2) Secret Manager (prod).
     """
+    # Essayer d'abord l'env var (pour dev local)
     api_key = os.environ.get("PDF_PARSER_API_KEY")
-    if not api_key:
-        raise ValueError("PDF_PARSER_API_KEY environment variable not set")
-    return api_key
+    if api_key:
+        return api_key
+
+    # Fallback: Secret Manager (pour prod Cloud Run)
+    try:
+        return get_secret("pdf-parser-api-key")
+    except Exception as e:
+        raise ValueError(f"PDF_PARSER_API_KEY not found in env or Secret Manager: {e}")
 

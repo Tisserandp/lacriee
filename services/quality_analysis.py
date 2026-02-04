@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Champs harmonises a analyser
 HARMONIZED_FIELDS = [
     "categorie", "methode_peche", "qualite", "decoupe", "etat", "origine",
-    "calibre", "type_production", "technique_abattage", "couleur",
+    "calibre", "type_production", "couleur",
     "conservation", "trim", "label", "variante"
 ]
 

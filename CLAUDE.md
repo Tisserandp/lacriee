@@ -19,7 +19,7 @@ Pipeline ELT qui parse des fichiers PDF/Excel de fournisseurs de produits de la 
 | Hennequin | PDF | `/parseHennequinPDF` | `parsers/hennequin.py` |
 | Audierne | PDF | `/parseAudiernepdf` | `parsers/audierne.py` |
 
-Tous les parseurs ont la signature: `parse(file_bytes, harmonize=True, **kwargs) -> list[dict]`
+Tous les parseurs: `parse(file_bytes, harmonize=True, **kwargs) -> list[dict]`
 
 ## Structure Critique
 
@@ -52,18 +52,6 @@ POST /parse{Vendor} (fichier)
 - **Valeurs**: MAJUSCULES sans accents (`VIDE`, `PELE`, `SAINT PIERRE`)
 - **keyDate**: Clé unique par parseur (`{Vendor}_{Code}_{Date}`) sauf pour le parseur Demarne ou c'est simplement (`{Code}_{Date}`)
 
-## Configuration Docker Local
-
-Le fichier `docker-compose.yml` monte le service account pour les credentials GCP:
-```yaml
-volumes:
-  - ./config/lacrieeparseur.json:/google_credentials/service_account.json:ro
-environment:
-  - GOOGLE_APPLICATION_CREDENTIALS=/google_credentials/service_account.json
-```
-
-**Important**: Le fichier `config/lacrieeparseur.json` contient la clé privée du service account. Ne jamais commiter ce fichier.
-
 ## IMPORTANT: Toujours utiliser Docker
 
 **Les dépendances Python (PyMuPDF, openpyxl, etc.) ne sont PAS installées localement.**
@@ -77,23 +65,13 @@ docker exec fastapi-pdf-parser python -m pytest tests/test_all_samples.py -v
 python -m pytest tests/test_all_samples.py -v  # ModuleNotFoundError!
 ```
 
-Avant toute commande, s'assurer que le conteneur tourne:
-```bash
-docker-compose up -d
-```
+S'assurer que le conteneur tourne: `docker-compose up -d`
 
 ## Commandes Fréquentes
 
 ```bash
-# Tests
+# Tests complets
 docker exec fastapi-pdf-parser python -m pytest tests/test_all_samples.py -v
-
-# Test d'un parseur
-docker exec fastapi-pdf-parser python -c "
-from parsers import vvqm
-data = vvqm.parse(open('Samples/VVQM/GEXPORT.pdf', 'rb').read(), harmonize=True)
-print(len(data), 'produits')
-"
 
 # Charger les samples
 docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/load_samples.py
@@ -118,63 +96,27 @@ docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/load_samples.py
 {"status": "completed", "metrics": {"rows_extracted": 96, "rows_inserted_prod": 96}}
 ```
 
-**Téléchargement fichier source** (`GET /jobs/{job_id}/file?expiration=60`):
+**Téléchargement fichier** (`GET /jobs/{job_id}/file?expiration=60`):
 ```json
 {
-  "job_id": "...",
-  "filename": "fichier.pdf",
-  "vendor": "VVQM",
-  "gcs_url": "gs://lacriee-archives/VVQM/2026-01-30/fichier.pdf",
-  "download_url": "https://storage.googleapis.com/lacriee-archives/...?X-Goog-Signature=...",
-  "created_at": "2026-01-30T06:40:12.742644+00:00",
+  "download_url": "https://storage.googleapis.com/...",
   "expires_in_minutes": 60
 }
 ```
-- `download_url`: URL signée temporaire pour télécharger le fichier
-- `expiration`: Durée de validité en minutes (défaut: 60)
 
 ## Déploiement Cloud Run
 
 **Production**: https://parsers-847079377265.europe-west1.run.app
 
-```bash
-# Déploiement rapide
-gcloud run deploy parsers \
-  --source . \
-  --project=lacriee \
-  --region=europe-west1 \
-  --allow-unauthenticated \
-  --memory=1Gi \
-  --timeout=300s \
-  --set-env-vars="GCP_PROJECT_ID=lacriee,GCS_BUCKET=lacriee-archives"
+Voir [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour les procédures complètes.
 
-# Voir l'URL du service
-gcloud run services describe parsers --project=lacriee --region=europe-west1 --format="value(status.url)"
+## Analyse Qualité des Données
 
-# Logs en temps réel
-gcloud run services logs tail parsers --project=lacriee --region=europe-west1
-```
+Endpoints `/analysis/*` pour inspecter les données dans AllPrices et améliorer les parseurs.
 
-**Documentation complète**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+**Important**: Filtrer par date récente (`date_from=2026-01-26`) car l'historique a été chargé avec harmonisation minimale.
 
-## Analyse Qualite des Donnees
-
-Endpoints `/analysis/*` pour inspecter les donnees dans AllPrices et ameliorer les parseurs.
-
-```bash
-# Couverture des champs par vendor
-curl "http://localhost:8080/analysis/coverage?vendor=Demarne" -H "X-API-Key: $KEY"
-
-# Distribution des valeurs d'un champ
-curl "http://localhost:8080/analysis/values/categorie?vendor=Demarne" -H "X-API-Key: $KEY"
-
-# Comparaison entre vendors
-curl "http://localhost:8080/analysis/compare-vendors" -H "X-API-Key: $KEY"
-```
-
-**Important**: Filtrer par date recente (`date_from=2026-01-26`) car l'historique a ete charge avec harmonisation minimale.
-
-**Documentation complete**: [docs/QUALITY_WORKFLOW.md](docs/QUALITY_WORKFLOW.md)
+Voir [docs/QUALITY_WORKFLOW.md](docs/QUALITY_WORKFLOW.md) pour le workflow complet.
 
 ## Documentation Technique
 
@@ -182,3 +124,4 @@ Voir [docs/CLAUDE.md](docs/CLAUDE.md) pour:
 - Mappings d'harmonisation complets
 - Schema BigQuery détaillé
 - Workflow AllPrices
+- Attributs spécifiques par parseur

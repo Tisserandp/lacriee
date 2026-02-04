@@ -39,7 +39,7 @@ def query_all_prices(
     default_fields = [
         "key_date", "date", "vendor", "code_provider", "product_name", "prix",
         "categorie", "methode_peche", "qualite", "decoupe", "etat", "origine", "calibre",
-        "type_production", "technique_abattage", "couleur",
+        "type_production", "couleur",
         "conservation", "trim", "label", "variante"
     ]
 
@@ -114,7 +114,7 @@ def get_distinct_values(field: str, vendor: Optional[str] = None) -> List[str]:
     # Valider le nom du champ (securite)
     allowed_fields = [
         "categorie", "methode_peche", "qualite", "decoupe", "etat", "origine",
-        "calibre", "type_production", "technique_abattage", "couleur",
+        "calibre", "type_production", "couleur",
         "conservation", "trim", "label", "variante", "vendor"
     ]
 
@@ -179,7 +179,7 @@ def count_by_field(field: str, vendor: Optional[str] = None, limit: int = 50) ->
     # Valider le nom du champ (securite)
     allowed_fields = [
         "categorie", "methode_peche", "qualite", "decoupe", "etat", "origine",
-        "calibre", "type_production", "technique_abattage", "couleur",
+        "calibre", "type_production", "couleur",
         "conservation", "trim", "label", "variante", "vendor"
     ]
 

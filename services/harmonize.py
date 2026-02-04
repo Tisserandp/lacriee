@@ -52,14 +52,12 @@ CATEGORIE_MAPPING = {
 METHODE_PECHE_MAPPING = {
     "PT BATEAU": "PB",
     "PETIT BATEAU": "PB",
-    # "LIGNE IKEJIME" → traité spécialement (séparer en LIGNE + technique_abattage)
     # "SAUVAGE" → traité spécialement (déplacer vers type_production)
 }
 
 # Valeurs à extraire de methode_peche vers d'autres champs
 METHODE_PECHE_EXTRACT = {
     "SAUVAGE": {"field": "type_production", "value": "SAUVAGE"},
-    "LIGNE IKEJIME": {"field": "technique_abattage", "value": "IKEJIME", "replace_with": "LIGNE"},
 }
 
 # --- Qualite ---
@@ -1152,8 +1150,6 @@ def harmonize_product(product: dict, vendor: str = None) -> dict:
         # Champs extraits
         if methode_result["type_production"]:
             result["type_production"] = methode_result["type_production"]
-        if methode_result["technique_abattage"]:
-            result["technique_abattage"] = methode_result["technique_abattage"]
 
         # --- Etat ---
         etat_result = normalize_etat(
@@ -1329,8 +1325,6 @@ def _harmonize_demarne_product(product: dict) -> dict:
     # Ne pas écraser type_production si déjà défini
     if methode_result["type_production"] and not result.get("type_production"):
         result["type_production"] = methode_result["type_production"]
-    if methode_result["technique_abattage"]:
-        result["technique_abattage"] = methode_result["technique_abattage"]
 
     # --- 6. Traiter le Calibre ---
     result["calibre"] = normalize_calibre(

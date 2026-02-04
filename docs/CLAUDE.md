@@ -1,5 +1,42 @@
 # Documentation Technique LaCriee
 
+## 0. Configuration Docker Local
+
+Le fichier `docker-compose.yml` monte le service account pour les credentials GCP:
+```yaml
+volumes:
+  - ./config/lacrieeparseur.json:/google_credentials/service_account.json:ro
+environment:
+  - GOOGLE_APPLICATION_CREDENTIALS=/google_credentials/service_account.json
+```
+
+**Important**: Le fichier `config/lacrieeparseur.json` contient la clé privée du service account. Ne jamais commiter ce fichier.
+
+### Commandes Docker Détaillées
+
+```bash
+# Démarrer les conteneurs
+docker-compose up -d
+
+# Voir les logs
+docker logs fastapi-pdf-parser
+
+# Rebuild après changement de dépendances
+docker-compose down && docker-compose up -d --build
+
+# Test d'un parseur spécifique
+docker exec fastapi-pdf-parser python -c "
+from parsers import vvqm
+data = vvqm.parse(open('Samples/VVQM/GEXPORT.pdf', 'rb').read(), harmonize=True)
+print(len(data), 'produits')
+"
+
+# Accéder au shell du conteneur
+docker exec -it fastapi-pdf-parser bash
+```
+
+---
+
 ## 1. Pipeline AllPrices
 
 ### Vue d'ensemble
@@ -49,7 +86,6 @@ CREATE TABLE AllPrices (
 
     -- Attributs extraits
     type_production     STRING,       -- SAUVAGE, ELEVAGE
-    technique_abattage  STRING,       -- IKEJIME
     couleur             STRING,       -- ROUGE, BLANCHE, NOIRE
 
     -- Attributs spécifiques
@@ -99,7 +135,6 @@ from services.harmonize import (
 | `trim` | Trim | Audierne |
 | `label` | Label | Demarne |
 | `type_production` | _(extrait)_ | Hennequin, Demarne |
-| `technique_abattage` | _(extrait)_ | VVQM |
 | `couleur` | _(extrait)_ | Laurent Daniel |
 
 ### Harmonisation Categorie
@@ -126,7 +161,7 @@ PLONGEE               <- PLONGEE
 
 **Règles spéciales:**
 - `PT BATEAU` → `PB`
-- `LIGNE IKEJIME` → `methode_peche=LIGNE` + `technique_abattage=IKEJIME`
+- `LIGNE IKEJIME` → conservé tel quel dans `methode_peche`
 - `SAUVAGE` → déplacer vers `type_production=SAUVAGE`
 
 ### Harmonisation Qualite
@@ -213,12 +248,6 @@ JUMBO, XXL, GEANT...  (Hennequin)
 ```
 SAUVAGE               <- SAUVAGE (Hennequin methode_peche)
 ELEVAGE               <- AQUACULTURE, AQ (Audierne origine)
-```
-
-### technique_abattage
-
-```
-IKEJIME               <- extrait de "LIGNE IKEJIME" (VVQM)
 ```
 
 ### couleur
@@ -355,6 +384,6 @@ docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/clear_all_price
 |---------|-------------------|----------------------|
 | Audierne | 174 | trim |
 | Hennequin | 103 | conservation, type_production |
-| VVQM | 89 | technique_abattage |
+| VVQM | 89 | - |
 | Laurent Daniel | 145 | couleur |
 | Demarne | 764 | label, variante, type_production |
