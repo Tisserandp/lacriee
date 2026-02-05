@@ -93,6 +93,8 @@ CREATE TABLE AllPrices (
     trim                STRING,       -- TRIM_C, TRIM_D (Audierne)
     label               STRING,       -- MSC, BIO, ASC (Demarne)
     variante            STRING,       -- Demarne
+    colisage            STRING,       -- Colisage du produit (Demarne)
+    unite_facturee      STRING,       -- Unité de facturation (Demarne)
 
     -- Métadonnées
     created_at          TIMESTAMP,
@@ -134,6 +136,8 @@ from services.harmonize import (
 | `conservation` | Conservation | Hennequin |
 | `trim` | Trim | Audierne |
 | `label` | Label | Demarne |
+| `colisage` | Colisage | Demarne |
+| `unite_facturee` | Unite_Facturee | Demarne |
 | `type_production` | _(extrait)_ | Hennequin, Demarne |
 | `couleur` | _(extrait)_ | Laurent Daniel |
 
@@ -363,12 +367,101 @@ url = generate_signed_url(
 
 ---
 
+## 9bis. Vues BigQuery de Mapping (Correction Qualité)
+
+**IMPORTANT**: Pour corriger des erreurs de catégorie ou calibre, modifier ces vues directement dans BigQuery (pas de code Python à changer).
+
+**📖 Guide complet**: Voir [MAPPING_BIGQUERY.md](MAPPING_BIGQUERY.md) pour la documentation détaillée du système de mapping.
+
+### `PROD.Mapping_Categories` (VUE)
+
+Mapping `categorie_raw` + `decoupe` (optionnel) → `famille_std` + `espece_std`.
+
+**Structure avec colonne decoupe** (depuis 2026-02):
+```sql
+-- Structure: UNNEST avec ~150 entrées
+STRUCT('BAR' AS categorie_raw, CAST(NULL AS STRING) AS decoupe, 'POISSON' AS famille_std, 'BAR' AS espece_std),
+
+-- Exemple de mapping conditionnel par découpe:
+STRUCT('ANCHOIS', CAST(NULL AS STRING), 'POISSON', 'ANCHOIS'),  -- Anchois frais
+STRUCT('ANCHOIS', 'FILET', 'EPICERIE', 'EPICERIE'),              -- Filets marinés
+```
+
+**Logique**:
+- `decoupe = NULL`: Mapping par défaut pour la catégorie
+- `decoupe = 'FILET'`: Mapping spécifique si decoupe='FILET'
+- Les matchs spécifiques ont priorité sur les matchs génériques
+
+**Utilisée par**:
+- `sp_Update_Analytics_Produits_Comparaison` (stored procedure principale)
+- `Mapping_Calibres`
+- `V_Prix_Du_Jour`
+
+**Accès rapide** (via Docker):
+```bash
+docker exec fastapi-pdf-parser python -c "
+from google.cloud import bigquery
+client = bigquery.Client(project='lacriee')
+t = client.get_table('lacriee.PROD.Mapping_Categories')
+print(t.view_query)
+"
+```
+
+### `PROD.Mapping_Calibres` (VUE)
+
+Vue dynamique qui parse automatiquement les calibres depuis `AllPrices`.
+
+**Colonnes produites**: `espece_std`, `calibre_raw`, `unite_std`, `min_val`, `max_val`
+
+**Unités détectées**:
+- `GRAMMES` (défaut) - ex: `500/800`, `1.2/1.5`
+- `NUMERO` (huîtres) - ex: `N°2`, `N°3`
+- `PIECES/KG` (St-Jacques, grenouilles, petits crustacés)
+
+**Logique de parsing**:
+1. Nettoie le texte brut (regex)
+2. Détecte l'unité selon espece_std et patterns
+3. Calcule min/max (gère les plages `X/Y`, les `+`, conversions kg→g)
+
+**Pour corriger un calibre mal parsé**: Modifier les CASE WHEN dans la vue.
+
+### `PROD.sp_Update_Analytics_Produits_Comparaison` (PROCEDURE)
+
+Stored procedure qui recalcule la table `Analytics_Produits_Comparaison` (table matérialisée).
+
+**Jointure avec Mapping_Categories** (avec logique de priorité decoupe):
+```sql
+LEFT JOIN `lacriee.PROD.Mapping_Categories` cat
+  ON TRIM(UPPER(p.categorie)) = TRIM(UPPER(cat.categorie_raw))
+  AND (
+    (cat.decoupe IS NOT NULL AND TRIM(UPPER(COALESCE(p.decoupe, ''))) = TRIM(UPPER(cat.decoupe)))
+    OR (cat.decoupe IS NULL)
+  )
+QUALIFY ROW_NUMBER() OVER(
+  PARTITION BY p.code_provider
+  ORDER BY CASE WHEN cat.decoupe IS NOT NULL THEN 1 ELSE 2 END
+) = 1
+```
+
+**Exécution**:
+```sql
+CALL `lacriee.PROD.sp_Update_Analytics_Produits_Comparaison`();
+```
+
+### `PROD.V_Prix_Du_Jour` (VUE)
+
+Vue alternative qui joint `AllPrices` + `Mapping_Categories` + `Mapping_Calibres` pour:
+- Enrichir avec `famille_std`, `espece_std`
+- Calculer les flags de calibre (`calib500`, `calib1000`...)
+- Calculer les rankings par calibre
+
+**Note**: Moins utilisée que `Analytics_Produits_Comparaison` (table matérialisée)
+
+---
+
 ## 10. Scripts Utilitaires
 
 ```bash
-# Charger tous les échantillons
-docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/load_samples.py
-
 # Vérifier les counts par vendor
 docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/check_counts.py
 

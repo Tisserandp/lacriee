@@ -401,6 +401,8 @@ def ensure_all_prices_table_exists() -> None:
         bigquery.SchemaField("trim", "STRING", mode="NULLABLE", description="TRIM_B, TRIM_C, etc."),
         bigquery.SchemaField("label", "STRING", mode="NULLABLE", description="MSC, BIO, LABEL ROUGE..."),
         bigquery.SchemaField("variante", "STRING", mode="NULLABLE", description="Variante produit (Demarne)"),
+        bigquery.SchemaField("colisage", "STRING", mode="NULLABLE", description="Colisage du produit (Demarne)"),
+        bigquery.SchemaField("unite_facturee", "STRING", mode="NULLABLE", description="Unité de facturation (Demarne)"),
 
         # Métadonnées
         bigquery.SchemaField("infos_brutes", "STRING", mode="NULLABLE", description="Concaténation des attributs extraits"),
@@ -500,6 +502,8 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
             "trim": item.get("trim"),
             "label": item.get("label"),
             "variante": item.get("variante"),
+            "colisage": item.get("colisage"),
+            "unite_facturee": item.get("unite_facturee"),
 
             # Méta
             "infos_brutes": str(item.get("infos_brutes", "")),
@@ -531,6 +535,8 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
         bigquery.SchemaField("trim", "STRING"),
         bigquery.SchemaField("label", "STRING"),
         bigquery.SchemaField("variante", "STRING"),
+        bigquery.SchemaField("colisage", "STRING"),
+        bigquery.SchemaField("unite_facturee", "STRING"),
         bigquery.SchemaField("infos_brutes", "STRING"),
         bigquery.SchemaField("created_at", "STRING"),
         bigquery.SchemaField("updated_at", "STRING"),
@@ -572,6 +578,8 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
             trim = S.trim,
             label = S.label,
             variante = S.variante,
+            colisage = S.colisage,
+            unite_facturee = S.unite_facturee,
             infos_brutes = S.infos_brutes,
             updated_at = CURRENT_TIMESTAMP(),
             last_job_id = S.last_job_id
@@ -580,14 +588,14 @@ def load_to_all_prices(job_id: str, vendor: str, harmonized_data: List[Dict[str,
             key_date, date, vendor, code_provider, product_name, prix,
             categorie, methode_peche, qualite, decoupe, etat, origine, calibre,
             type_production, couleur,
-            conservation, trim, label, variante,
+            conservation, trim, label, variante, colisage, unite_facturee,
             infos_brutes, created_at, updated_at, last_job_id
           )
           VALUES (
             key_date, date, vendor, code_provider, product_name, prix,
             categorie, methode_peche, qualite, decoupe, etat, origine, calibre,
             type_production, couleur,
-            conservation, trim, label, variante,
+            conservation, trim, label, variante, colisage, unite_facturee,
             infos_brutes, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), last_job_id
           )
         """

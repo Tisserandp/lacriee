@@ -153,6 +153,10 @@ def parse_laurent_daniel_attributes(product_name: str, categorie: str = None) ->
             infos_trouvees.append(f"Origine:{origine}")
     if origines_trouvees:
         result["Origine"] = ", ".join(origines_trouvees)
+    else:
+        # Default to FRANCE if no origin detected
+        result["Origine"] = "FRANCE"
+        infos_trouvees.append("Origine:FRANCE")
 
     # --- Calibre ---
     calibre_trouve = None

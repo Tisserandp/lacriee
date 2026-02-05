@@ -106,10 +106,11 @@ def is_section_header(text: str) -> bool:
         return False
 
     # Ignorer les lignes qui commencent par des mots de header de page
-    header_words = ['bonjour', 'cours du', 'page', 'opportunit', 'bonne journ',
+    # Note: Utiliser startswith() pour éviter les faux positifs (ex: "PAGEOT" ne doit pas matcher "page")
+    header_words = ['bonjour', 'cours du', 'page ', 'opportunit', 'bonne journ',
                     'viviers', 'audierne', 'poissons / crustaces', 'demande de']
     text_lower = text.lower()
-    if any(word in text_lower for word in header_words):
+    if any(text_lower.startswith(word) for word in header_words):
         return False
 
     # Une section est généralement tout en majuscules
@@ -150,7 +151,7 @@ def is_section_header(text: str) -> bool:
         'LANGOUSTE', 'HOMARD', 'TOURTEAUX', 'ARAIGNEES', 'TOURTEAUX - ARAIGNEES',
         'CRUSTACES CUITS PAST', 'TURBOT', 'BARBUE', 'SOLE', 'LOTTE', 'MERLU',
         'POULPE', 'ENCORNET', 'BAR', 'LIEU JAUNE', 'SAINT PIERRE', 'ROUGET BARBET',
-        'GRONDIN', 'VIEILLE', 'CONGRE', 'DORADE', 'CABILLAUD', 'PAGEOT', 'MERLAN',
+        'GRONDIN', 'VIEILLE', 'CONGRE', 'DORADE', 'DORADE GRISE', 'CABILLAUD', 'PAGEOT', 'MERLAN',
         'PAGRE', 'TACAUD', 'RAIE', 'THON', 'POISSONS BLEUS', 'DIVERS POISSONS',
         'FILET DE POISSONS', 'SAUMONS', 'FILET SAUMON', 'COQUILLAGES'
     ]
@@ -288,7 +289,8 @@ def parse_audierne_attributes(product_name: str, categorie: str = None) -> dict:
         (r'\bVAT\b', 'ATLANTIQUE'),
         (r'\bECOS(?:SE)?\b', 'ECOSSE'),
         (r'\bNORVEGE\b', 'NORVEGE'),
-        (r'\bIRL\b', 'IRLANDE'),
+        (r'\bIRLANDE\b', 'IRLANDE'),  # Full word - checked FIRST
+        (r'\bIRL\b', 'IRLANDE'),      # Abbreviation - checked SECOND
         (r'\bFRANCE\b', 'FRANCE'),
         (r'\bCANCALE\b', 'CANCALE'),
         (r'\bVDA\b', 'AUDIERNE'),  # Viviers d'Audierne

@@ -124,6 +124,7 @@ DEMARNE_SPECIES_PATTERNS = [
     # Catégories composites → espèce
     (r'^SAUMON\b', 'SAUMON'),
     (r'^BAR\b', 'BAR'),
+    (r'^DORADE\s+GRISE\b', 'DORADE GRISE'),
     (r'^DORADE\b', 'DORADE'),
     (r'^CREVETTE\b', 'CREVETTES'),
     (r'^HOMARD\b', 'HOMARD'),
@@ -143,6 +144,7 @@ DEMARNE_SPECIES_PATTERNS = [
     (r'^SANDRE\b', 'SANDRE'),
     (r'^TRUITE\b', 'TRUITE'),
     (r'^SOLE\b', 'SOLE'),
+    (r'^PAGEOT\b', 'PAGEOT'),
     (r'^AILE DE RAIE\b', 'RAIE'),
     (r'^COQUILLE\s*SAINT\s*JACQUES\b', 'COQUILLE ST JACQUES'),
     (r'^NOIX DE ST JACQUES\b', 'NOIX ST JACQUES'),
@@ -209,6 +211,7 @@ FILET_SPECIES_NORMALIZE = {
     'SARDINE': 'SARDINE',
     'TRUITE': 'TRUITE',
     'BAR': 'BAR',
+    'DORADE GRISE': 'DORADE GRISE',
     'DORADE': 'DORADE',
     'ANCHOIS': 'ANCHOIS',
     'HARENG': 'HARENG',
@@ -226,6 +229,7 @@ FILET_SPECIES_NORMALIZE = {
     'COLIN': 'COLIN',
     'COLIN ALASKA': 'COLIN',
     'BROCHET': 'BROCHET',
+    'PAGEOT': 'PAGEOT',
     'PAGRE': 'PAGRE',
     'GRONDIN': 'GRONDIN',
     'CARRELET': 'CARRELET',
@@ -296,6 +300,20 @@ DEMARNE_ETAT_PATTERNS = [
     (r'\bFUME\b', 'FUME'),
     (r'\bFUM[EÉ]\b', 'FUME'),
     (r'\bDECORTIQUE', 'DECORTIQUE'),
+]
+
+# États de préparation à extraire pour le champ decoupe
+# Ces patterns détectent les états de préparation dans les noms de produits
+# qui seront combinés avec les découpes physiques (FILET, DOS, etc.)
+PREPARATION_STATE_PATTERNS = [
+    (r'\bNON\s+VID[EÉ]E?S?\b', 'Non vidé'),      # Vérifier composés en premier
+    (r'\bENTI[EÈ]RE?S?\b', 'Entier'),            # ENTIER, ENTIERE, ENTIÈRE
+    (r'\bVID[EÉ]E?S?\b', 'Vidé'),                # VIDE, VIDÉ, VIDEE, VIDÉE
+    (r'\bGRATT[EÉ]E?S?\b', 'Gratté'),            # GRATTE, GRATTÉ, GRATTEE
+    (r'\b[EÉ]T[EÊ]T[EÉ]E?S?\b', 'Étêté'),        # ETETE, ÉTÊTÉ, ETETEE
+    (r'\b[EÉ]CAILL[EÉ]E?S?\b', 'Écaillé'),       # ECAILLE, ÉCAILLÉ
+    (r'\bPAR[EÉ]E?S?\b', 'Paré'),                # PARE, PARÉ, PAREE
+    (r'\b[EÉ]VISC[EÉ]R[EÉ]E?S?\b', 'Éviscéré'),  # EVISCERE, ÉVISCÉRÉ
 ]
 
 # Découpes à extraire depuis les variantes Demarne
@@ -470,6 +488,16 @@ def normalize_categorie(categorie: Optional[str], product_name: Optional[str] = 
         return result
 
     result["categorie"] = categorie
+
+    # Affiner l'espèce avec le product_name si nécessaire
+    if product_name and result["categorie"]:
+        product_upper = remove_accents(product_name.upper().strip())
+
+        # Si l'espèce est DORADE (ou contient DORADE) et le nom contient GRISE → DORADE GRISE
+        if result["categorie"] in ("DORADE", "DORADE / PAGRE") or "DORADE" in result["categorie"]:
+            if "GRISE" in product_upper:
+                result["categorie"] = "DORADE GRISE"
+
     return result
 
 
@@ -612,6 +640,106 @@ def normalize_trim(trim: Optional[str]) -> Optional[str]:
 
     trim = normalize_value(trim)
     return TRIM_MAPPING.get(trim, trim)
+
+
+def extract_preparation_states_from_name(product_name: str) -> list[str]:
+    """
+    Extrait les états de préparation du nom de produit.
+
+    Retourne uniquement les états destinés au champ decoupe (Vidé, Entier, Gratté).
+    Exclut les vrais états (VIVANT, CUIT) qui restent dans le champ etat.
+
+    Args:
+        product_name: Nom du produit à analyser
+
+    Returns:
+        Liste des états normalisés dans l'ordre d'apparition (ex: ["Vidé", "Gratté"])
+
+    Examples:
+        >>> extract_preparation_states_from_name("DORADE VIDÉ GRATTÉ")
+        ['Vidé', 'Gratté']
+        >>> extract_preparation_states_from_name("SOLE ENTIÈRE VIVANTE")
+        ['Entier']
+        >>> extract_preparation_states_from_name("TURBOT NON VIDÉ")
+        ['Non vidé']
+    """
+    if not product_name:
+        return []
+
+    name_upper = product_name.upper()
+
+    # Trouver tous les matches avec leur position
+    matches = []
+    for pattern, normalized in PREPARATION_STATE_PATTERNS:
+        for match in re.finditer(pattern, name_upper):
+            matches.append((match.start(), match.end(), normalized))
+
+    # Trier par position d'apparition
+    matches.sort(key=lambda x: x[0])
+
+    # Éliminer les chevauchements (garder le premier match en cas de conflit)
+    # et dédupliquer
+    found_states = []
+    seen_normalized = set()
+    covered_ranges = []
+
+    for start, end, normalized in matches:
+        # Vérifier si ce match chevauche un précédent
+        overlaps = any(start < prev_end and end > prev_start for prev_start, prev_end in covered_ranges)
+
+        if not overlaps and normalized not in seen_normalized:
+            found_states.append(normalized)
+            seen_normalized.add(normalized)
+            covered_ranges.append((start, end))
+
+    return found_states
+
+
+def combine_decoupe_with_prep_states(
+    decoupe: Optional[str],
+    prep_states: list[str]
+) -> Optional[str]:
+    """
+    Combine découpe physique et états de préparation.
+
+    Format: "DECOUPE_PHYSIQUE, État 1, État 2"
+    - Découpes physiques en MAJUSCULES
+    - États de préparation en Title Case
+    - Déduplication (insensible à la casse)
+
+    Args:
+        decoupe: Découpe physique (ex: "FILET", "DOS")
+        prep_states: Liste des états de préparation
+
+    Returns:
+        Chaîne combinée ou None si tout est vide
+
+    Examples:
+        >>> combine_decoupe_with_prep_states("FILET", ["Vidé", "Gratté"])
+        "FILET, Vidé, Gratté"
+        >>> combine_decoupe_with_prep_states(None, ["Entier", "Non vidé"])
+        "Entier, Non vidé"
+        >>> combine_decoupe_with_prep_states("DOS", [])
+        "DOS"
+    """
+    parts = []
+    seen_lower = set()
+
+    # Ajouter la découpe physique en premier (si présente)
+    if decoupe:
+        decoupe_clean = decoupe.strip()
+        if decoupe_clean and decoupe_clean.lower() not in seen_lower:
+            parts.append(decoupe_clean)
+            seen_lower.add(decoupe_clean.lower())
+
+    # Ajouter les états de préparation (déduplication)
+    for state in prep_states:
+        state_clean = state.strip()
+        if state_clean and state_clean.lower() not in seen_lower:
+            parts.append(state_clean)
+            seen_lower.add(state_clean.lower())
+
+    return ", ".join(parts) if parts else None
 
 
 # =============================================================================
@@ -837,6 +965,15 @@ def normalize_demarne_categorie(
             result["origine_from_categorie"] = origine
             break
 
+    # 6. Affiner l'espèce avec la variante si elle contient des précisions
+    # Ex: categorie="DORADE SAUVAGE" → espece="DORADE", mais variante="Dorade Grise" → espece="DORADE GRISE"
+    if variante and result["categorie"]:
+        var_upper = remove_accents(variante.upper().strip())
+
+        # Si l'espèce est DORADE et la variante contient GRISE → DORADE GRISE
+        if result["categorie"] == "DORADE" and "GRISE" in var_upper:
+            result["categorie"] = "DORADE GRISE"
+
     return result
 
 
@@ -961,10 +1098,12 @@ SPECIES_PATTERNS = [
     (r'\bBARBUE\b', 'BARBUE'),
     (r'\bTURBOT\b', 'TURBOT'),
     (r'\bSOLE\b', 'SOLE'),
+    (r'\bPAGEOT\b', 'PAGEOT'),  # Avant CABILLAUD pour éviter capture
     (r'\bCABILLAUD\b', 'CABILLAUD'),
     (r'\bMERLU\b', 'MERLU'),
     (r'\bMERLAN\b', 'MERLAN'),
     (r'\bLOTTE\b', 'LOTTE'),
+    (r'\bDORADE\s+GRISE\b', 'DORADE GRISE'),
     (r'\bDORADE\b', 'DORADE'),
     (r'\bRAIE\b', 'RAIE'),
     (r'\bSAUMON\b', 'SAUMON'),
@@ -1216,6 +1355,16 @@ def harmonize_product(product: dict, vendor: str = None) -> dict:
             result.get("Trim") or result.get("trim")
         )
 
+        # --- Extraction des états de préparation et combinaison avec decoupe ---
+        product_name_for_prep = result.get("ProductName") or result.get("product_name") or ""
+        prep_states = extract_preparation_states_from_name(product_name_for_prep)
+
+        # Combiner avec la découpe physique existante
+        result["decoupe"] = combine_decoupe_with_prep_states(
+            result.get("decoupe"),
+            prep_states
+        )
+
         # --- Nettoyage: supprimer les anciennes clés en CamelCase (attributs produits) ---
         old_keys = [
             "Categorie", "Methode_Peche", "Qualite", "Decoupe", "Etat",
@@ -1331,7 +1480,17 @@ def _harmonize_demarne_product(product: dict) -> dict:
         result.get("Calibre") or result.get("calibre")
     )
 
-    # --- 7. Nettoyage des anciennes clés ---
+    # --- 7. Extraction des états de préparation et combinaison avec decoupe ---
+    product_name_for_prep = result.get("ProductName") or result.get("product_name") or ""
+    prep_states = extract_preparation_states_from_name(product_name_for_prep)
+
+    # Combiner avec la découpe physique existante
+    result["decoupe"] = combine_decoupe_with_prep_states(
+        result.get("decoupe"),
+        prep_states
+    )
+
+    # --- 8. Nettoyage des anciennes clés ---
     old_keys = [
         "Categorie", "Variante", "Methode_Peche", "Label", "Calibre", "Origine",
         "Qualite", "Decoupe", "Etat", "Conservation", "Trim"

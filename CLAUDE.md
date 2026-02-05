@@ -72,9 +72,6 @@ S'assurer que le conteneur tourne: `docker-compose up -d`
 ```bash
 # Tests complets
 docker exec fastapi-pdf-parser python -m pytest tests/test_all_samples.py -v
-
-# Charger les samples
-docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/load_samples.py
 ```
 
 ## Points d'Attention
@@ -110,6 +107,29 @@ docker exec -e PYTHONPATH=/app fastapi-pdf-parser python scripts/load_samples.py
 
 Voir [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour les procédures complètes.
 
+## Convention de Nommage des Vendors
+
+**IMPORTANT**: Les vendors doivent TOUJOURS utiliser la même casse que définie dans les parseurs.
+
+| Vendor | Nom Officiel | Fichier Parseur |
+|--------|--------------|-----------------|
+| Audierne | `Audierne` | parsers/audierne.py:474 |
+| Demarne | `Demarne` | parsers/demarne.py:459 |
+| Hennequin | `Hennequin` | parsers/hennequin.py:471 |
+| Laurent Daniel | `Laurent Daniel` | parsers/laurent_daniel.py:460 |
+| VVQM | `VVQM` | parsers/vvqm.py:429 |
+
+**Règles**:
+- ✅ TOUJOURS utiliser la casse exacte ci-dessus
+- ❌ JAMAIS en minuscule (audierne, vvqm, etc.)
+- ❌ JAMAIS avec underscore (laurent_daniel)
+- 📖 Les parseurs sont la source de vérité pour les noms
+
+**Utilisation**:
+- Endpoints API: Utilisent déjà la bonne casse
+- BigQuery: Stocke avec la casse officielle
+- Rechargement samples: Via endpoints API uniquement (plus de script load_samples)
+
 ## Analyse Qualité des Données
 
 Endpoints `/analysis/*` pour inspecter les données dans AllPrices et améliorer les parseurs.
@@ -117,6 +137,27 @@ Endpoints `/analysis/*` pour inspecter les données dans AllPrices et améliorer
 **Important**: Filtrer par date récente (`date_from=2026-01-26`) car l'historique a été chargé avec harmonisation minimale.
 
 Voir [docs/QUALITY_WORKFLOW.md](docs/QUALITY_WORKFLOW.md) pour le workflow complet.
+
+## Correction Catégories/Calibres (Vues BigQuery)
+
+**Erreur de catégorie ou calibre?** → Modifier directement les vues dans BigQuery (pas de code Python):
+
+| Vue/Procedure | Usage |
+|---------------|-------|
+| `PROD.Mapping_Categories` | Mapping `categorie_raw` + `decoupe` → `famille_std` + `espece_std` |
+| `PROD.sp_Update_Analytics_Produits_Comparaison` | Stored procedure qui recalcule Analytics avec mappings |
+| `PROD.Mapping_Calibres` | Parsing auto des calibres (unité, min/max) |
+
+**📖 Guide complet**: Voir [docs/MAPPING_BIGQUERY.md](docs/MAPPING_BIGQUERY.md)
+
+**Exemple de mapping conditionnel** (depuis 2026-02):
+```sql
+-- Anchois frais = POISSON, mais filets marinés = EPICERIE
+STRUCT('ANCHOIS', CAST(NULL AS STRING), 'POISSON', 'ANCHOIS'),
+STRUCT('ANCHOIS', 'FILET', 'EPICERIE', 'EPICERIE'),
+```
+
+Voir aussi [docs/CLAUDE.md](docs/CLAUDE.md) section 9bis pour la vue d'ensemble.
 
 ## Documentation Technique
 

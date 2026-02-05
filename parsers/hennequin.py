@@ -449,7 +449,8 @@ def extract_data_from_pdf(file_bytes: bytes) -> list[dict]:
         'BAR PETIT BATEAU': 'BAR',
         'BAR LIGNE': 'BAR',
         'DORADE ROYALE': 'DORADE',
-        'DORADE SAR': 'DORADE'
+        'DORADE SAR': 'DORADE',
+        'DORADE GRISE': 'DORADE GRISE'  # Garder DORADE GRISE distincte
     }
     df_final['Categorie'] = df_final['Catégorie'].replace(cat_map)
 

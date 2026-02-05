@@ -119,6 +119,10 @@ def parse_vvqm_product_name(produit: str) -> dict:
         result["Origine"] = 'DANEMARK'
         parts.remove('VDK')
 
+    # Default to FRANCE if no origin detected
+    if result["Origine"] is None:
+        result["Origine"] = "FRANCE"
+
     # 5. Ce qui reste = espèce
     result["Espece"] = ' '.join(parts) if parts else produit_upper
 
@@ -152,6 +156,7 @@ def get_vvqm_category(espece: str) -> str:
         ("COQUILLE ST JACQUES", "COQUILLE ST JACQUES"),
         ("NOIX ST JACQUES", "NOIX ST JACQUES"),
         ("NOIX SAINT JACQUES", "NOIX ST JACQUES"),
+        ("DORADE GRISE", "DORADE GRISE"),  # Avant DORADE pour éviter match partiel
     ]
 
     for pattern, category in priority_mappings:
@@ -216,6 +221,62 @@ def get_vvqm_category(espece: str) -> str:
             return category
 
     return "POISSON"
+
+
+def extract_calibre_from_product_name(product_name: str) -> tuple:
+    """
+    Extrait le calibre depuis un nom de produit VVQM si présent.
+
+    Patterns recherchés:
+    - Plage simple: X/Y (ex: 2/800, 600/1)
+    - Plage avec décimale: X/Y.Z ou X/Y,Z (ex: 800/1,5)
+    - Plage avec "plus": X/Y+ (ex: 500/1+, 800/1,5+)
+    - Format "plus" seul: X+ (ex: 500+)
+
+    Args:
+        product_name: Nom complet du produit
+
+    Returns:
+        tuple (nom_nettoyé, calibre_extrait) ou (product_name, None) si aucun calibre
+    """
+    if not product_name:
+        return product_name, None
+
+    # Pattern 1: Format "X/+" sans chiffre après le slash (2/+, 400/+)
+    # Doit être cherché en PREMIER (plus spécifique que les autres patterns avec slash)
+    # IMPORTANT: Garder le format "X/+" au lieu de le transformer en "X+" pour éviter les doublons
+    match = re.search(r'\b(\d+(?:[,.]\d+)?)/\+', product_name)
+    if match:
+        calibre = f"{match.group(1)}/+"
+        nom_nettoye = product_name[:match.start()].strip()
+        return nom_nettoye, calibre
+
+    # Pattern 2: Plages avec "plus" (500/1+, 800/1,5+)
+    match = re.search(r'\b(\d+(?:[,.]\d+)?)/(\d+(?:[,.]\d+)?\+)', product_name)
+    if match:
+        calibre = f"{match.group(1)}/{match.group(2)}"
+        # Normaliser virgule → point
+        calibre = calibre.replace(',', '.')
+        nom_nettoye = product_name[:match.start()].strip()
+        return nom_nettoye, calibre
+
+    # Pattern 3: Plages numériques standard (2/800, 800/1,5, 40/60)
+    match = re.search(r'\b(\d+(?:[,.]\d+)?)/(\d+(?:[,.]\d+)?)\b', product_name)
+    if match:
+        calibre = f"{match.group(1)}/{match.group(2)}"
+        # Normaliser virgule → point
+        calibre = calibre.replace(',', '.')
+        nom_nettoye = product_name[:match.start()].strip()
+        return nom_nettoye, calibre
+
+    # Pattern 4: Format "plus" seul (500+, 1+)
+    match = re.search(r'\b(\d+)\+', product_name)
+    if match:
+        calibre = f"{match.group(1)}+"
+        nom_nettoye = product_name[:match.start()].strip()
+        return nom_nettoye, calibre
+
+    return product_name, None
 
 
 def extract_data_from_pdf(file_bytes: bytes) -> pd.DataFrame:
@@ -437,6 +498,30 @@ def parse(file_bytes: bytes, harmonize: bool = False, **kwargs) -> list[dict]:
     # Extraction des données brutes
     df = extract_data_from_pdf(file_bytes)
     products = sanitize_for_json(df)
+
+    # Post-traitement pour extraire les calibres depuis ProductName
+    for product in products:
+        # Si le calibre est vide ou None, tenter l'extraction depuis ProductName
+        if not product.get("Calibre") or product["Calibre"] == "":
+            product_name = product.get("ProductName", "")
+            nom_nettoye, calibre_extrait = extract_calibre_from_product_name(product_name)
+
+            if calibre_extrait:
+                # Mettre à jour les champs
+                product["Produit"] = nom_nettoye
+                product["Calibre"] = calibre_extrait
+                product["ProductName"] = f"{nom_nettoye} - {calibre_extrait}"
+
+                # Mettre à jour Code_Provider et keyDate
+                # IMPORTANT: Reproduire le format EXACT de l'ancien parseur pour éviter les doublons
+                # Ancien format quand calibre vide: "VVQM__ProductName__" → "VVQM_ProductName_"
+                # On doit donc ajouter l'underscore final pour matcher
+                vendor = product.get("Vendor", "VVQM")
+                date = product.get("Date", "")
+                code_provider = f"{vendor}__{nom_nettoye} {calibre_extrait}_".replace(" ", "_").replace("__", "_")
+                product["Code_Provider"] = code_provider
+                # keyDate: code_provider se termine déjà par "_", donc pas besoin d'en rajouter un
+                product["keyDate"] = f"{code_provider}{date}"
 
     # Affinage des catégories génériques vers espèces spécifiques
     for product in products:
