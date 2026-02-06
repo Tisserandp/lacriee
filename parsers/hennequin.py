@@ -454,6 +454,19 @@ def extract_data_from_pdf(file_bytes: bytes) -> list[dict]:
     }
     df_final['Categorie'] = df_final['Catégorie'].replace(cat_map)
 
+    # 8a. Affiner la catégorie "**PRODUITS SURGELES QUALITE PREMIUM**" selon le ProductName
+    def refine_surgeles_category(row):
+        """Affine la catégorie des surgelés premium selon le nom du produit."""
+        if row['Categorie'] == '**PRODUITS SURGELES QUALITE PREMIUM**':
+            product_upper = str(row['ProductName']).upper()
+            if 'ENCORNET' in product_upper:
+                return 'ENCORNET SURGELE'
+            elif 'POULPE' in product_upper:
+                return 'POULPE SURGELE'
+        return row['Categorie']
+
+    df_final['Categorie'] = df_final.apply(refine_surgeles_category, axis=1)
+
     # 8b. Enrichissement: extraction des attributs depuis ProductName et Categorie
     def enrich_row(row):
         attrs = parse_hennequin_attributes(

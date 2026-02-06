@@ -437,7 +437,11 @@ def extract_data_from_pdf(file_bytes: bytes) -> list[dict]:
         ('merlan', 'merlan'),
         ('maigre', 'maigre'),
         ('saumon', 'saumon'),
-        ('st pierre', 'SAINT PIERRE')
+        ('st pierre', 'SAINT PIERRE'),
+        ('poulpe', 'POULPE'),
+        ('seiche', 'SEICHE'),
+        ('calmar', 'CALMAR'),
+        ('encornet', 'ENCORNET')
     ]
     for prefix, cat in rules:
         mask = df_final['produit_lower'].str.startswith(prefix)
